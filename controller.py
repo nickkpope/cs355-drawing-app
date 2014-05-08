@@ -5,14 +5,13 @@ class Controller():
     def __init__(self, view):
         self.view = view
         self.draw_mode = 'ellipse'
-        self.draw_color = Color(0.0, 0.0, 0.0)
+        self.draw_color = Color(0.0, 0.0, 0.0, 1.0)
 
     def draw(self):
         self.view.draw(self.draw_mode)
 
     def color_button_hit(self, c):
-        print Color(c.redF(), c.greenF(), c.blueF(), c.alphaF()).rgba()
-        self.draw_color = Color(c.red(), c.green(), c.blue(), c.alpha())
+        self.draw_color = Color(c.redF(), c.greenF(), c.blueF(), c.alphaF())
 
     def triangle_button_hit(self):
         self.draw_mode = 'triangle'

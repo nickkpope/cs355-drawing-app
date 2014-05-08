@@ -36,7 +36,9 @@ class AppCentralWidget(QWidget):
         # self.ui.pb_camera.clicked.connect(self.controller.)
 
     def pick_color(self):
-        color = QColorDialog.getColor()
+        picker = QColorDialog()
+        picker.setOption(QColorDialog.ShowAlphaChannel, on=True)
+        color = picker.getColor()
         self.controller.color_button_hit(color)
 
 

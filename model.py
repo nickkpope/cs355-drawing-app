@@ -50,6 +50,9 @@ class Circle(Shape):
         self.center = center
         self.radius = radius
 
+    def __repr__(self):
+        return 'cir(center=%s radius=%s)' % (self.center, self.radius)
+
 
 class Triangle(Shape):
     def __init__(self, color, p1, p2=None, p3=None):
@@ -58,6 +61,9 @@ class Triangle(Shape):
         self.p1 = p1
         self.p2 = p2
         self.p3 = p3
+
+    def __repr__(self):
+        return 'tri(p1=%s p2=%s p3=%s)' % (self.p1, self.p2, self.p3)
 
 
 class Model():
@@ -148,3 +154,6 @@ class Color(Vector):
 
     def vec(self):
         return self.rgba()
+
+    def __repr__(self):
+        return 'Color(%s %s %s %s)' % self.rgba()
