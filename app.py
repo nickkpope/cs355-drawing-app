@@ -32,14 +32,21 @@ class AppCentralWidget(QWidget):
         self.ui.pb_select.clicked.connect(self.controller.select_button_hit)
         self.ui.pb_zoom_in.clicked.connect(self.controller.zoomIn_button_hit)
         self.ui.pb_zoom_out.clicked.connect(self.controller.zoomOut_button_hit)
+        self.ui.sl_alpha.valueChanged.connect(self.change_alpha)
+        self.change_alpha(1000)
         # self.ui.pb_home.clicked.connect(self.controller.)
         # self.ui.pb_camera.clicked.connect(self.controller.)
+
+    def change_alpha(self, v):
+        self.alpha = float(v)/1000
+        self.controller.alpha_slider_changed(self.alpha)
 
     def pick_color(self):
         picker = QColorDialog()
         picker.setOption(QColorDialog.ShowAlphaChannel, on=True)
-        color = picker.getColor()
-        self.controller.color_button_hit(color)
+        color = picker.getColor(options=[QColorDialog.ShowAlphaChannel, QColorDialog.DontUseNativeDialog])
+        color.setAlphaF(self.alpha)
+        self.controller.color_button_hit(color.redF(), color.greenF(), color.blueF(), self.alpha)
 
 
 def main():

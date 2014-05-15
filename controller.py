@@ -4,35 +4,61 @@ from model import Color
 class Controller():
     def __init__(self, view):
         self.view = view
-        self.draw_mode = 'ellipse'
+        self.draw_mode = 'select'
+        self.selected_shape = None
         self.draw_color = Color(0.0, 0.0, 0.0, 1.0)
+        self.selected_draw_color = Color(0.0, 0.0, 0.0, 1.0)
 
     def draw(self):
         self.view.draw(self.draw_mode)
 
-    def color_button_hit(self, c):
-        self.draw_color = Color(c.redF(), c.greenF(), c.blueF(), c.alphaF())
+    def color_button_hit(self, r, g, b, a):
+        color = color = Color(r, g, b, a)
+        if self.selected_shape:
+            self.view.clear()
+            self.selected_draw_color = color
+            self.selected_shape.color = color
+            print 'selected color', self.selected_shape.color, id(self.selected_shape)
+            self.view.canvas.updateGL()
+        else:
+            self.draw_color = color
+            print 'draw color', self.draw_color
+
+    def alpha_slider_changed(self, alpha):
+        if self.selected_shape:
+            self.selected_draw_color.a = alpha
+            self.color_button_hit(*self.selected_draw_color.rgba())
+        else:
+            self.draw_color.a = alpha
+            self.color_button_hit(*self.draw_color.rgba())
 
     def triangle_button_hit(self):
+        self.view.clear_state()
         self.draw_mode = 'triangle'
 
     def square_button_hit(self):
+        self.view.clear_state()
         self.draw_mode = 'square'
 
     def rectangle_button_hit(self):
+        self.view.clear_state()
         self.draw_mode = 'rectangle'
 
     def circle_button_hit(self):
+        self.view.clear_state()
         self.draw_mode = 'circle'
 
     def ellipse_button_hit(self):
+        self.view.clear_state()
         self.draw_mode = 'ellipse'
 
     def line_button_hit(self):
+        self.view.clear_state()
         self.draw_mode = 'line'
 
     def select_button_hit(self):
-        pass
+        self.view.clear_state()
+        self.draw_mode = 'select'
 
     def zoomIn_button_hit(self):
         pass
