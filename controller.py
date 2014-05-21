@@ -8,6 +8,7 @@ class Controller():
         self.selected_shape = None
         self.draw_color = Color(0.0, 0.0, 0.0, 1.0)
         self.selected_draw_color = Color(0.0, 0.0, 0.0, 1.0)
+        self.view.update_color_indicator(*self.draw_color.rgba())
 
     def draw(self):
         self.view.draw(self.draw_mode)
@@ -18,10 +19,12 @@ class Controller():
             self.view.clear()
             self.selected_draw_color = color
             self.selected_shape.color = color
+            self.view.update_color_indicator(*self.selected_shape.color.rgba())
             print 'selected color', self.selected_shape.color, id(self.selected_shape)
             self.view.canvas.updateGL()
         else:
             self.draw_color = color
+            self.view.update_color_indicator(*self.draw_color.rgba())
             print 'draw color', self.draw_color
 
     def alpha_slider_changed(self, alpha):

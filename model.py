@@ -10,21 +10,21 @@ class Shape():
     def bounding_box(self):
         return BoundingBox()
 
-    bb = bounding_box
-
     def is_inside(self, q):
         return False
 
-    def to_world(self, p):
+    def to_world(self, p, trans=True):
         t = Transform2d()
-        t.translate(self.center)
+        if trans:
+            t.translate(self.center)
         t.rotate(self.rotation)
         return t.transform(p)
 
-    def to_object(self, q):
+    def to_object(self, q, trans=True):
         t = Transform2d()
         t.rotate(-self.rotation)
-        t.translate(-self.center)
+        if trans:
+            t.translate(-self.center)
         return t.transform(q)
 
 
@@ -34,6 +34,12 @@ class Line(Shape):
         self.type = 'line'
         self.p1 = p1
         self.p2 = p2
+
+    def to_world(self, p):
+        return p
+
+    def to_object(self, q):
+        return q
 
     def is_inside(self, q):
         if not (self.p1 and self.p2):
@@ -166,7 +172,6 @@ class Triangle(Shape):
 
     def is_inside(self, q):
         q = self.to_object(q)
-        print 'checking', q, self.points()
         if self.bounding_box().is_inside(q):
             print (q-self.p1).dot((self.p2-self.p1).perp())
             print (q-self.p2).dot((self.p3-self.p2).perp())
@@ -255,9 +260,9 @@ class Vector():
 
 class Point(Vector):
     def __init__(self, x, y, w=1):
-        self.x = x
-        self.y = y
-        self.w = w
+        self.x = float(x)
+        self.y = float(y)
+        self.w = float(w)
 
     def xy(self):
         return (self.x, self.y)
@@ -311,6 +316,9 @@ class BoundingBox(Shape):
         within_x = -self.w < q.x and q.x < self.w
         within_y = self.h > q.y and q.y > -self.h
         return within_x and within_y
+
+    def __repr__(self):
+        return 'BB(%s %s %s %s)' % self.corners()
 
 
 class Transform2d():

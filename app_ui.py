@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'app.ui'
 #
-# Created: Sun May 11 18:11:27 2014
+# Created: Tue May 20 10:43:42 2014
 #      by: pyside-uic 0.2.15 running on PySide 1.2.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -137,26 +137,26 @@ class Ui_App_form(object):
         self.verticalLayout.setObjectName("verticalLayout")
         self.horizontalLayout = QtGui.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
+        self.w_color_indicator = ColorIndicator(App_form)
+        self.w_color_indicator.setMinimumSize(QtCore.QSize(30, 30))
+        self.w_color_indicator.setMaximumSize(QtCore.QSize(30, 30))
+        self.w_color_indicator.setObjectName("w_color_indicator")
+        self.horizontalLayout.addWidget(self.w_color_indicator)
         self.horizontalScrollBar = QtGui.QScrollBar(App_form)
         self.horizontalScrollBar.setOrientation(QtCore.Qt.Horizontal)
         self.horizontalScrollBar.setObjectName("horizontalScrollBar")
         self.horizontalLayout.addWidget(self.horizontalScrollBar)
-        self.widget = QtGui.QWidget(App_form)
-        self.widget.setMinimumSize(QtCore.QSize(20, 20))
-        self.widget.setMaximumSize(QtCore.QSize(20, 20))
-        self.widget.setObjectName("widget")
-        self.horizontalLayout.addWidget(self.widget)
         self.verticalLayout.addLayout(self.horizontalLayout)
         self.horizontalLayout_3 = QtGui.QHBoxLayout()
         self.horizontalLayout_3.setObjectName("horizontalLayout_3")
-        self.w_drawWidg = DrawWidget(App_form)
-        self.w_drawWidg.setMinimumSize(QtCore.QSize(512, 512))
-        self.w_drawWidg.setObjectName("w_drawWidg")
-        self.horizontalLayout_3.addWidget(self.w_drawWidg)
         self.verticalScrollBar = QtGui.QScrollBar(App_form)
         self.verticalScrollBar.setOrientation(QtCore.Qt.Vertical)
         self.verticalScrollBar.setObjectName("verticalScrollBar")
         self.horizontalLayout_3.addWidget(self.verticalScrollBar)
+        self.w_drawWidg = DrawWidget(App_form)
+        self.w_drawWidg.setMinimumSize(QtCore.QSize(512, 512))
+        self.w_drawWidg.setObjectName("w_drawWidg")
+        self.horizontalLayout_3.addWidget(self.w_drawWidg)
         self.verticalLayout.addLayout(self.horizontalLayout_3)
         spacerItem1 = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.verticalLayout.addItem(spacerItem1)
@@ -168,4 +168,4 @@ class Ui_App_form(object):
     def retranslateUi(self, App_form):
         App_form.setWindowTitle(QtGui.QApplication.translate("App_form", "Form", None, QtGui.QApplication.UnicodeUTF8))
 
-from view import DrawWidget
+from view import DrawWidget, ColorIndicator

@@ -8,6 +8,29 @@ import numpy as np
 import copy
 
 
+class ColorIndicator(QWidget):
+    def __init__(self, parent=None):
+        super(ColorIndicator, self).__init__(parent=parent)
+        self.color = None
+
+    def update_color(self, r, g, b, a):
+        self.color = QColor()
+        self.color.setRgbF(r, g, b, a)
+        self.update()
+
+    def paintEvent(self, event):
+        if self.color:
+            painter = QPainter(self)
+            cx = self.size().width()
+            cy = self.size().height()
+            painter.setBackgroundMode(Qt.OpaqueMode)
+            bg = QColor(0, 0, 0)
+            fg = QColor(255, 255, 255)
+            painter.fillRect(0, 0, cx, cy, bg)
+            painter.fillRect(cx/4, cy/4, cx/2, cy/2, fg)
+            painter.fillRect(0, 0, cx, cy, self.color)
+
+
 class GLWidget(QGLWidget):
     def __init__(self, parent=None):
         QGLWidget.__init__(self, parent)
@@ -27,12 +50,13 @@ class GLWidget(QGLWidget):
 
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
-    
+
     def paintGL(self):
         glClearColor(1, 1, 1, 1)
         glClear(GL_COLOR_BUFFER_BIT)
         self.parent.draw()
         glFlush()
+
 
 class DrawWidget(QWidget):
     def __init__(self, parent=None):
@@ -48,31 +72,38 @@ class DrawWidget(QWidget):
         self.clear_state()
 
         self.draw_map = {}
+        self.reshape_map = {}
         self.shape_types_map = {}
         shape_descs = [
-            ('line', self.draw_line, Line),
-            ('rectangle', self.draw_rectangle, Rectangle),
-            ('square', self.draw_square, Square),
-            ('ellipse', self.draw_ellipse, Ellipse),
-            ('circle', self.draw_circle, Circle),
-            ('triangle', self.draw_triangle, Triangle),
-            ('select', self.draw_nothing, Shape)
+            ('line', self.draw_line, self.reshape_line, Line),
+            ('rectangle', self.draw_rectangle, self.reshape_rectangle, Rectangle),
+            ('square', self.draw_square, self.reshape_square, Square),
+            ('ellipse', self.draw_ellipse, self.reshape_ellipse, Ellipse),
+            ('circle', self.draw_circle, self.reshape_circle, Circle),
+            ('triangle', self.draw_triangle, self.reshape_triangle, Triangle),
+            ('select', self.draw_nothing, self.draw_nothing, Shape)
         ]
-        for tn, d, t in shape_descs:
+        for tn, d, u, t in shape_descs:
             self.draw_map[tn] = d
+            self.reshape_map[tn] = u
             self.shape_types_map[tn] = t
 
+    def update_color_indicator(self, r, g, b, a):
+        self.parent().ui.w_color_indicator.update_color(r, g, b, a)
+
     def clear_state(self):
-        self.click_pos = Point(0, 0)
+        self.press_pos = Point(0, 0)
         self.draw_shape = None
         self.tri_shape = None
         self.rotating = False
         self.rot_handle = None
-        self.line_p1_handle = None
-        self.line_p2_handle = None
+        self.selected_handle_index = -1
+        self.active_handles = []
+        self.shape_orig_center = None
+        self.opress_pos = None
         self.selected_line_endpoint = None
         self.d_vec = Point(0, 0)
-        self.cur_point = None
+        self.move_pos = None
 
     def clear(self):
         glClearColor(1, 1, 1, 1)
@@ -90,34 +121,38 @@ class DrawWidget(QWidget):
 
     def mousePressEvent(self, event):
         # print 'mousePressEvent', event.pos()
-        self.click_pos = self.to_screen(event.pos().x(), event.pos().y())
+        self.press_pos = self.to_screen(event.pos().x(), event.pos().y())
         if self.controller.draw_mode == 'select':
             handle_clicked = False
             if self.rot_handle:
-                if self.rot_handle.is_inside(self.click_pos):
+                if self.rot_handle.is_inside(self.press_pos):
                     self.rotating = True
                     handle_clicked = True
-            elif self.line_p1_handle and self.line_p2_handle:
-                if self.line_p1_handle.is_inside(self.click_pos):
-                    self.selected_line_endpoint = self.controller.selected_shape.p1
-                    handle_clicked = True
-                if self.line_p2_handle.is_inside(self.click_pos):
-                    self.selected_line_endpoint = self.controller.selected_shape.p2
-                    handle_clicked = True
 
+            # check active handles for click event
+            print '>>>', self.active_handles
+            for i, h in enumerate(self.active_handles):
+                if h.is_inside(self.press_pos):
+                    self.selected_handle_index = i
+                    handle_clicked = True
+                    self.hd_vec = self.press_pos - h.center
+                    break
+            print 'handle_clicked', handle_clicked, self.selected_handle_index
+            found_shape = False
             if not handle_clicked:
-                found_shape = False
                 for s in reversed(self.model.shapes):
-                    if s.is_inside(self.click_pos):
+                    if s.is_inside(self.press_pos):
                         self.controller.selected_shape = s
                         print 'found selected shape', self.controller.selected_shape.color
                         found_shape = True
                         break
-            else:
-                found_shape = False
+
             if found_shape:
                 self.controller.selected_draw_color = self.controller.selected_shape.color
-                self.d_vec = self.click_pos - self.controller.selected_shape.center
+                self.d_vec = self.press_pos - self.controller.selected_shape.center
+                self.update_color_indicator(*self.controller.selected_shape.color.rgba())
+            else:
+                self.update_color_indicator(*self.controller.draw_color.rgba())
 
             if not found_shape and not handle_clicked:
                 self.controller.selected_shape = None
@@ -129,49 +164,57 @@ class DrawWidget(QWidget):
 
     def mouseMoveEvent(self, event):
         self.clear()
-        self.cur_point = self.to_screen(event.pos().x(), event.pos().y())
+        self.move_pos = self.to_screen(event.pos().x(), event.pos().y())
         if self.controller.selected_shape and self.controller.draw_mode == 'select':
             if self.rotating:
-                theta = (self.cur_point - self.controller.selected_shape.center).angle_between(Point(1, 0))
-                if self.cur_point.y < self.controller.selected_shape.center.y:
+                theta = (self.move_pos - self.controller.selected_shape.center).angle_between(Point(1, 0))
+                if self.move_pos.y < self.controller.selected_shape.center.y:
                     theta *= -1
                 self.controller.selected_shape.rotation = theta
-            elif self.selected_line_endpoint:
-                self.selected_line_endpoint.x = self.cur_point.x
-                self.selected_line_endpoint.y = self.cur_point.y
+            elif self.selected_handle_index >= 0:
+                self.reshape_map[self.controller.selected_shape.type]()
             else:
-                self.controller.selected_shape.center = self.cur_point - self.d_vec
+                self.controller.selected_shape.center = self.move_pos - self.d_vec
 
         self.canvas.updateGL()
-        # print 'mouseMoveEvent', event
 
     def mouseReleaseEvent(self, event):
-        # self.clear()
-        self.cur_point = None
-        # print 'mouseReleaseEvent', event.pos()
+        self.move_pos = None
+        self.active_handles = []
+        self.selected_handle_index = None
         self.rotating = False
+        if self.controller.selected_shape:
+            if self.controller.draw_mode == 'rectangle' or self.controller.draw_mode == 'ellipse':
+                self.controller.selected_shape.w = abs(self.controller.selected_shape.w)
+                self.controller.selected_shape.h = abs(self.controller.selected_shape.h)
         self.finish(self.to_screen(event.pos().x(), event.pos().y()))
 
     def draw(self):
-        if self.cur_point:
-            self.draw_map[self.controller.draw_mode](self.draw_shape, pos=self.cur_point)
+        if self.move_pos:
+            self.draw_map[self.controller.draw_mode](self.draw_shape, pos=self.move_pos)
         for shape in self.model.shapes:
             self.draw_map[shape.type](shape)
 
         if self.controller.selected_shape:
+
+            # Draw outline shape
             outline = copy.deepcopy(self.controller.selected_shape)
             outline.color = Color(1, 0, 0)
             self.draw_map[outline.type](outline, fill=False)
-            for c in outline.handle_positions():
-                p = outline.to_world(c)
-                draw_ellipse(Color(1, 0, 0), p.x, p.y, 4, 4)
 
-            if self.controller.selected_shape.type == 'line':
-                self.line_p1_handle = Circle(Color(1, 0, 0), outline.p1, 4)
-                self.line_p2_handle = Circle(Color(1, 0, 0), outline.p2, 4)
-            else:
-                obb = outline.bounding_box()
-                rot_handle_point = outline.to_world((obb.tr() + obb.br())/2 + Point(15, 0))
+            # Draw object handles
+            self.active_handles = []
+            for p in self.controller.selected_shape.handle_positions():
+                c = Circle(Color(1, 0, 0), self.controller.selected_shape.to_world(p), 10)
+                self.active_handles.append(c)
+                self.draw_circle(c, fill=False)
+
+            # Draw rotation handle if needed
+            if self.controller.selected_shape.type != 'line':
+                obb = shape.bounding_box()
+                rot_handle_x = max(obb.tl().x, obb.tr().x)
+                rot_handle_y = (obb.tr().y + obb.br().y)/2
+                rot_handle_point = outline.to_world(Point(rot_handle_x, rot_handle_y) + Point(15, 0))
                 self.rot_handle = Circle(Color(1, 0, 0), rot_handle_point, 4)
                 self.draw_circle(self.rot_handle)
 
@@ -214,21 +257,27 @@ class DrawWidget(QWidget):
         if shape.p1 and shape.p2:
             draw_line(shape.color, shape.p1.vec(), shape.p2.vec())
 
+    def reshape_line(self):
+        if self.active_handles[self.selected_handle_index].center == self.controller.selected_shape.p1:
+            self.controller.selected_shape.p1 = self.move_pos - self.hd_vec
+        elif self.active_handles[self.selected_handle_index].center == self.controller.selected_shape.p2:
+            self.controller.selected_shape.p2 = self.move_pos - self.hd_vec
+
     def draw_rectangle(self, shape, pos=None, fill=True):
         if pos:
-            w = abs(pos.x - self.click_pos.x)/2
-            h = abs(pos.y - self.click_pos.y)/2
+            w = abs(pos.x - self.press_pos.x)/2
+            h = abs(pos.y - self.press_pos.y)/2
             top_left = Point(0, 0)
 
-            if pos.x < self.click_pos.x:  # hovering left of initial click
+            if pos.x < self.press_pos.x:  # hovering left of initial click
                 top_left.x = pos.x
             else:
-                top_left.x = self.click_pos.x
+                top_left.x = self.press_pos.x
 
-            if pos.y > self.click_pos.y:  # hovering above initial click
+            if pos.y > self.press_pos.y:  # hovering above initial click
                 top_left.y = pos.y
             else:
-                top_left.y = self.click_pos.y
+                top_left.y = self.press_pos.y
 
             shape.w = w
             shape.h = h
@@ -249,21 +298,27 @@ class DrawWidget(QWidget):
             fill=fill
         )
 
+    def reshape_rectangle(self):
+        dp, w, h = self.bounding_box_reshape(self.controller.selected_shape)
+        self.controller.selected_shape.w = w
+        self.controller.selected_shape.h = h
+        self.controller.selected_shape.center += dp
+
     def draw_square(self, shape, pos=None, fill=True):
         if pos:
-            dx = abs(pos.x - self.click_pos.x)/2
-            dy = abs(pos.y - self.click_pos.y)/2
+            dx = abs(pos.x - self.press_pos.x)/2
+            dy = abs(pos.y - self.press_pos.y)/2
             shape.size = min(dx, dy)
             top_left = Point(0, 0)
-            if pos.x < self.click_pos.x:  # hovering left of initial click
-                top_left.x = self.click_pos.x - shape.size*2
+            if pos.x < self.press_pos.x:  # hovering left of initial click
+                top_left.x = self.press_pos.x - shape.size*2
             else:
-                top_left.x = self.click_pos.x
+                top_left.x = self.press_pos.x
 
-            if pos.y > self.click_pos.y:  # hovering above initial click
-                top_left.y = self.click_pos.y + shape.size*2
+            if pos.y > self.press_pos.y:  # hovering above initial click
+                top_left.y = self.press_pos.y + shape.size*2
             else:
-                top_left.y = self.click_pos.y
+                top_left.y = self.press_pos.y
 
             shape.center = Point(top_left.x + shape.size, top_left.y - shape.size)
 
@@ -279,22 +334,27 @@ class DrawWidget(QWidget):
             fill=fill
         )
 
+    def reshape_square(self):
+        dp, size = self.bounding_box_reshape(self.controller.selected_shape)
+        self.controller.selected_shape.size = size
+        self.controller.selected_shape.center += dp
+
     def draw_ellipse(self, shape, pos=None, fill=True):
         if pos:
-            w = abs(pos.x - self.click_pos.x)
-            h = abs(pos.y - self.click_pos.y)
-            if pos.x < self.click_pos.x:  # hovering left of initial click
+            w = abs(pos.x - self.press_pos.x)
+            h = abs(pos.y - self.press_pos.y)
+            if pos.x < self.press_pos.x:  # hovering left of initial click
                 tlx = pos.x
-                trx = self.click_pos.x
+                trx = self.press_pos.x
             else:
-                tlx = self.click_pos.x
+                tlx = self.press_pos.x
                 trx = pos.x
 
-            if pos.y > self.click_pos.y:  # hovering above initial click
+            if pos.y > self.press_pos.y:  # hovering above initial click
                 tly = pos.y
-                try_ = self.click_pos.y
+                try_ = self.press_pos.y
             else:
-                tly = self.click_pos.y
+                tly = self.press_pos.y
                 try_ = pos.y
 
             shape.center.x = (tlx + trx)/2
@@ -306,26 +366,34 @@ class DrawWidget(QWidget):
             return
 
         rot = {'angle': shape.rotation, 'x': shape.center.x, 'y': shape.center.y}
-        draw_ellipse(shape.color, shape.center.x, shape.center.y, shape.w, shape.h, fill=fill, rot=rot)
+        draw_ellipse(shape.color, shape.center.x, shape.center.y, abs(shape.w), abs(shape.h), fill=fill, rot=rot)
+
+    def reshape_ellipse(self):
+        dp, w, h = self.bounding_box_reshape(self.controller.selected_shape,
+                                             self.controller.selected_shape.w,
+                                             self.controller.selected_shape.h)
+        self.controller.selected_shape.w = w
+        self.controller.selected_shape.h = h
+        self.controller.selected_shape.center += dp
 
     def draw_circle(self, shape, pos=None, fill=True):
         if pos:
-            dw = abs(pos.x - self.click_pos.x)/2
-            dh = abs(pos.y - self.click_pos.y)/2
+            dw = abs(pos.x - self.press_pos.x)/2
+            dh = abs(pos.y - self.press_pos.y)/2
             shape.radius = min(dw, dh)
-            if pos.x < self.click_pos.x:  # hovering left of initial click
-                tlx = self.click_pos.x - shape.radius*2
-                trx = self.click_pos.x
+            if pos.x < self.press_pos.x:  # hovering left of initial click
+                tlx = self.press_pos.x - shape.radius*2
+                trx = self.press_pos.x
             else:
-                tlx = self.click_pos.x
-                trx = self.click_pos.x + shape.radius*2
+                tlx = self.press_pos.x
+                trx = self.press_pos.x + shape.radius*2
 
-            if pos.y > self.click_pos.y:  # hovering above initial click
-                tly = self.click_pos.y + shape.radius*2
-                try_ = self.click_pos.y
+            if pos.y > self.press_pos.y:  # hovering above initial click
+                tly = self.press_pos.y + shape.radius*2
+                try_ = self.press_pos.y
             else:
-                tly = self.click_pos.y
-                try_ = self.click_pos.y - shape.radius*2
+                tly = self.press_pos.y
+                try_ = self.press_pos.y - shape.radius*2
 
             shape.center.x = (tlx + trx)/2
             shape.center.y = (tly + try_)/2
@@ -333,6 +401,10 @@ class DrawWidget(QWidget):
             return
 
         draw_ellipse(shape.color, shape.center.x, shape.center.y, shape.radius, shape.radius, fill=fill)
+
+    def reshape_circle(self):
+        move_pos = self.controller.selected_shape.to_object(self.move_pos)
+        self.controller.selected_shape.radius = min(abs(move_pos.x), abs(move_pos.y))
 
     def draw_triangle(self, shape, pos=None, fill=True):
         # convert back to world
@@ -343,12 +415,52 @@ class DrawWidget(QWidget):
                       shape.to_world(shape.p3).xy(),
                       fill=fill)
 
+    def reshape_triangle(self):
+        p1 = self.controller.selected_shape.to_world(self.controller.selected_shape.p1)
+        p2 = self.controller.selected_shape.to_world(self.controller.selected_shape.p2)
+        p3 = self.controller.selected_shape.to_world(self.controller.selected_shape.p3)
+        move_pos = self.controller.selected_shape.to_object(self.move_pos - self.hd_vec)
+        if self.active_handles[self.selected_handle_index].center == p1:
+            self.controller.selected_shape.p1 = move_pos
+        elif self.active_handles[self.selected_handle_index].center == p2:
+            self.controller.selected_shape.p2 = move_pos
+        elif self.active_handles[self.selected_handle_index].center == p3:
+            self.controller.selected_shape.p3 = move_pos
+        else:
+            print 'could not find triangle point on update'
+
+    def bounding_box_reshape(self, shape, w, h):
+            # determine which corner was picked
+            hc = shape.to_object(self.active_handles[self.selected_handle_index].center)
+
+            # put new position in object space
+            move_pos = shape.to_object(self.move_pos - self.hd_vec)
+
+            # update shape
+            dp = (move_pos - hc)/2.0
+            if int(hc.x) == int(shape.bounding_box().tl().x) and int(hc.y) == int(shape.bounding_box().tl().y):
+                w -= dp.x
+                h += dp.y
+            elif int(hc.x) == int(shape.bounding_box().tr().x) and int(hc.y) == int(shape.bounding_box().tr().y):
+                w += dp.x
+                h += dp.y
+            elif int(hc.x) == int(shape.bounding_box().br().x) and int(hc.y) == int(shape.bounding_box().br().y):
+                w += dp.x
+                h -= dp.y
+            elif int(hc.x) == int(shape.bounding_box().bl().x) and int(hc.y) == int(shape.bounding_box().bl().y):
+                w -= dp.x
+                h -= dp.y
+            else:
+                print 'could not determine picked handle'
+
+            return shape.to_world(dp, trans=False), w, h
+
 
 def draw_line(color, p1, p2):
     glBegin(GL_LINES)
     glColor4f(*color.rgba())
-    glVertex2i(*p1)
-    glVertex2i(*p2)
+    glVertex2i(*[int(i) for i in p1])
+    glVertex2i(*[int(i) for i in p2])
     glEnd()
 
 
@@ -437,8 +549,8 @@ def draw_quad(color, tl, tr, br, bl, fill=True):
         glLineWidth(1)
     glBegin(GL_POLYGON)
     glColor4f(*color.rgba())
-    glVertex2f(*tl)
-    glVertex2f(*tr)
-    glVertex2f(*br)
-    glVertex2f(*bl)
+    glVertex2f(*[int(i) for i in tl])
+    glVertex2f(*[int(i) for i in tr])
+    glVertex2f(*[int(i) for i in br])
+    glVertex2f(*[int(i) for i in bl])
     glEnd()

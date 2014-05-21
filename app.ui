@@ -281,25 +281,25 @@
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout">
        <item>
-        <widget class="QScrollBar" name="horizontalScrollBar">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QWidget" name="widget" native="true">
+        <widget class="ColorIndicator" name="w_color_indicator" native="true">
          <property name="minimumSize">
           <size>
-           <width>20</width>
-           <height>20</height>
+           <width>30</width>
+           <height>30</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
-           <width>20</width>
-           <height>20</height>
+           <width>30</width>
+           <height>30</height>
           </size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QScrollBar" name="horizontalScrollBar">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
          </property>
         </widget>
        </item>
@@ -308,19 +308,19 @@
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout_3">
        <item>
+        <widget class="QScrollBar" name="verticalScrollBar">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="DrawWidget" name="w_drawWidg" native="true">
          <property name="minimumSize">
           <size>
            <width>512</width>
            <height>512</height>
           </size>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QScrollBar" name="verticalScrollBar">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
          </property>
         </widget>
        </item>
@@ -346,6 +346,12 @@
  <customwidgets>
   <customwidget>
    <class>DrawWidget</class>
+   <extends>QWidget</extends>
+   <header>view.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ColorIndicator</class>
    <extends>QWidget</extends>
    <header>view.h</header>
    <container>1</container>
