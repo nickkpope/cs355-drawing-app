@@ -184,7 +184,7 @@ class DrawWidget(QWidget):
         self.selected_handle_index = None
         self.rotating = False
         if self.controller.selected_shape:
-            if self.controller.draw_mode == 'rectangle' or self.controller.draw_mode == 'ellipse':
+            if self.controller.selected_shape.type == 'rectangle' or self.controller.draw_mode == 'ellipse':
                 self.controller.selected_shape.w = abs(self.controller.selected_shape.w)
                 self.controller.selected_shape.h = abs(self.controller.selected_shape.h)
         self.finish(self.to_screen(event.pos().x(), event.pos().y()))
@@ -299,10 +299,7 @@ class DrawWidget(QWidget):
         )
 
     def reshape_rectangle(self):
-        dp, w, h = self.bounding_box_reshape(self.controller.selected_shape)
-        self.controller.selected_shape.w = w
-        self.controller.selected_shape.h = h
-        self.controller.selected_shape.center += dp
+        self.bounding_box_reshape(self.controller.selected_shape)
 
     def draw_square(self, shape, pos=None, fill=True):
         if pos:
@@ -335,9 +332,9 @@ class DrawWidget(QWidget):
         )
 
     def reshape_square(self):
-        dp, size = self.bounding_box_reshape(self.controller.selected_shape)
-        self.controller.selected_shape.size = size
-        self.controller.selected_shape.center += dp
+        # move_pos = self.controller.selected_shape.to_object(self.move_pos)
+        # self.controller.selected_shape.size = min(abs(move_pos.x), abs(move_pos.y))
+        self.square_bbox_reshape(self.controller.selected_shape)
 
     def draw_ellipse(self, shape, pos=None, fill=True):
         if pos:
@@ -369,12 +366,7 @@ class DrawWidget(QWidget):
         draw_ellipse(shape.color, shape.center.x, shape.center.y, abs(shape.w), abs(shape.h), fill=fill, rot=rot)
 
     def reshape_ellipse(self):
-        dp, w, h = self.bounding_box_reshape(self.controller.selected_shape,
-                                             self.controller.selected_shape.w,
-                                             self.controller.selected_shape.h)
-        self.controller.selected_shape.w = w
-        self.controller.selected_shape.h = h
-        self.controller.selected_shape.center += dp
+        self.bounding_box_reshape(self.controller.selected_shape)
 
     def draw_circle(self, shape, pos=None, fill=True):
         if pos:
@@ -429,7 +421,60 @@ class DrawWidget(QWidget):
         else:
             print 'could not find triangle point on update'
 
-    def bounding_box_reshape(self, shape, w, h):
+    def square_bbox_reshape(self, shape):
+            if shape.type == 'square':
+                size = shape.size
+            else:
+                size = shape.radius
+            w = h = size
+
+            # put new position in object space
+            move_pos = shape.to_object(self.move_pos - self.hd_vec)
+
+            # determine which corner was picked
+            hc = shape.to_object(self.active_handles[self.selected_handle_index].center)
+
+            # update shape
+            dp = (move_pos - hc)/2.0
+            min_delta = min(abs(dp.x), abs(dp.y))
+            if min_delta > 0:
+                if dp.x < 0 and dp.y > 0:    # left and up
+                    size += min_delta
+                    if size < 0:
+                        dp.x = min_delta
+                    else:
+                        dp.x = -min_delta
+                    dp.y = min_delta
+                elif dp.x < 0 and dp.y < 0:  # left and down
+                    size -= min_delta
+                    if size < 0:
+                        dp.x = -min_delta
+                    else:
+                        dp.x = min_delta
+                    dp.y = -min_delta
+                elif dp.x > 0 and dp.y > 0:  # right and up
+                    size -= min_delta
+                    if size < 0:
+                        dp.x = -min_delta
+                    else:
+                        dp.x = min_delta
+                    dp.y = -min_delta
+                elif dp.x > 0 and dp.y < 0:  # right and down
+                    size -= min_delta
+                    if size < 0:
+                        dp.x = -min_delta
+                    else:
+                        dp.x = min_delta
+                    dp.y = -min_delta
+
+                if shape.type == 'square':
+                    shape.size = size
+                else:
+                    shape.radius = size
+
+                shape.center += shape.to_world(dp, trans=False)
+
+    def bounding_box_reshape(self, shape):
             # determine which corner was picked
             hc = shape.to_object(self.active_handles[self.selected_handle_index].center)
 
@@ -439,21 +484,21 @@ class DrawWidget(QWidget):
             # update shape
             dp = (move_pos - hc)/2.0
             if int(hc.x) == int(shape.bounding_box().tl().x) and int(hc.y) == int(shape.bounding_box().tl().y):
-                w -= dp.x
-                h += dp.y
+                shape.w -= dp.x
+                shape.h += dp.y
             elif int(hc.x) == int(shape.bounding_box().tr().x) and int(hc.y) == int(shape.bounding_box().tr().y):
-                w += dp.x
-                h += dp.y
+                shape.w += dp.x
+                shape.h += dp.y
             elif int(hc.x) == int(shape.bounding_box().br().x) and int(hc.y) == int(shape.bounding_box().br().y):
-                w += dp.x
-                h -= dp.y
+                shape.w += dp.x
+                shape.h -= dp.y
             elif int(hc.x) == int(shape.bounding_box().bl().x) and int(hc.y) == int(shape.bounding_box().bl().y):
-                w -= dp.x
-                h -= dp.y
+                shape.w -= dp.x
+                shape.h -= dp.y
             else:
                 print 'could not determine picked handle'
 
-            return shape.to_world(dp, trans=False), w, h
+            shape.center += shape.to_world(dp, trans=False)
 
 
 def draw_line(color, p1, p2):
