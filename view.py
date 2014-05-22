@@ -332,9 +332,9 @@ class DrawWidget(QWidget):
         )
 
     def reshape_square(self):
-        # move_pos = self.controller.selected_shape.to_object(self.move_pos)
-        # self.controller.selected_shape.size = min(abs(move_pos.x), abs(move_pos.y))
-        self.square_bbox_reshape(self.controller.selected_shape)
+        move_pos = self.controller.selected_shape.to_object(self.move_pos)
+        self.controller.selected_shape.size = min(abs(move_pos.x), abs(move_pos.y))
+        # self.square_bbox_reshape(self.controller.selected_shape)
 
     def draw_ellipse(self, shape, pos=None, fill=True):
         if pos:
@@ -412,6 +412,7 @@ class DrawWidget(QWidget):
         p2 = self.controller.selected_shape.to_world(self.controller.selected_shape.p2)
         p3 = self.controller.selected_shape.to_world(self.controller.selected_shape.p3)
         move_pos = self.controller.selected_shape.to_object(self.move_pos - self.hd_vec)
+
         if self.active_handles[self.selected_handle_index].center == p1:
             self.controller.selected_shape.p1 = move_pos
         elif self.active_handles[self.selected_handle_index].center == p2:
@@ -422,57 +423,42 @@ class DrawWidget(QWidget):
             print 'could not find triangle point on update'
 
     def square_bbox_reshape(self, shape):
-            if shape.type == 'square':
-                size = shape.size
-            else:
-                size = shape.radius
-            w = h = size
-
+            # determine which corner was picked
+            hc = shape.to_object(self.active_handles[self.selected_handle_index].center)
+            w = h = shape.size
             # put new position in object space
             move_pos = shape.to_object(self.move_pos - self.hd_vec)
 
-            # determine which corner was picked
-            hc = shape.to_object(self.active_handles[self.selected_handle_index].center)
-
             # update shape
             dp = (move_pos - hc)/2.0
-            min_delta = min(abs(dp.x), abs(dp.y))
-            if min_delta > 0:
-                if dp.x < 0 and dp.y > 0:    # left and up
-                    size += min_delta
-                    if size < 0:
-                        dp.x = min_delta
-                    else:
-                        dp.x = -min_delta
-                    dp.y = min_delta
-                elif dp.x < 0 and dp.y < 0:  # left and down
-                    size -= min_delta
-                    if size < 0:
-                        dp.x = -min_delta
-                    else:
-                        dp.x = min_delta
-                    dp.y = -min_delta
-                elif dp.x > 0 and dp.y > 0:  # right and up
-                    size -= min_delta
-                    if size < 0:
-                        dp.x = -min_delta
-                    else:
-                        dp.x = min_delta
-                    dp.y = -min_delta
-                elif dp.x > 0 and dp.y < 0:  # right and down
-                    size -= min_delta
-                    if size < 0:
-                        dp.x = -min_delta
-                    else:
-                        dp.x = min_delta
-                    dp.y = -min_delta
+            if int(hc.x) == int(shape.bounding_box().tl().x) and int(hc.y) == int(shape.bounding_box().tl().y):
+                w -= dp.x
+                h += dp.y
+            elif int(hc.x) == int(shape.bounding_box().tr().x) and int(hc.y) == int(shape.bounding_box().tr().y):
+                w += dp.x
+                h += dp.y
+            elif int(hc.x) == int(shape.bounding_box().br().x) and int(hc.y) == int(shape.bounding_box().br().y):
+                w += dp.x
+                h -= dp.y
+            elif int(hc.x) == int(shape.bounding_box().bl().x) and int(hc.y) == int(shape.bounding_box().bl().y):
+                w -= dp.x
+                h -= dp.y
+            else:
+                print 'could not determine picked handle'
 
-                if shape.type == 'square':
-                    shape.size = size
+            shape.size = min(abs(w), abs(h))
+            if (dp.x == 0 and dp.y < 0) or (dp.x == 0 and dp.y > 0):  # down or up
+                if move_pos.x < 0:
+                    dp.x = -dp.y
                 else:
-                    shape.radius = size
+                    dp.x = dp.y
+            elif (dp.x < 0 and dp.y == 0) or (dp.x > 0 and dp.y == 0):  # left or right
+                if move_pos.y < shape.center.y:
+                    dp.y = -dp.x
+                else:
+                    dp.y = dp.x
 
-                shape.center += shape.to_world(dp, trans=False)
+            shape.center += shape.to_world(dp, trans=False)
 
     def bounding_box_reshape(self, shape):
             # determine which corner was picked
