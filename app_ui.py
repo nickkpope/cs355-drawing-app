@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'app.ui'
 #
-# Created: Tue May 20 10:43:42 2014
+# Created: Sun May 25 13:25:06 2014
 #      by: pyside-uic 0.2.15 running on PySide 1.2.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -95,7 +95,7 @@ class Ui_App_form(object):
         self.pb_select.setObjectName("pb_select")
         self.verticalLayout_2.addWidget(self.pb_select)
         self.pb_zoom_in = QtGui.QPushButton(App_form)
-        self.pb_zoom_in.setEnabled(False)
+        self.pb_zoom_in.setEnabled(True)
         self.pb_zoom_in.setText("")
         icon8 = QtGui.QIcon()
         icon8.addPixmap(QtGui.QPixmap("res/ZoomIn.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
@@ -104,7 +104,7 @@ class Ui_App_form(object):
         self.pb_zoom_in.setObjectName("pb_zoom_in")
         self.verticalLayout_2.addWidget(self.pb_zoom_in)
         self.pb_zoom_out = QtGui.QPushButton(App_form)
-        self.pb_zoom_out.setEnabled(False)
+        self.pb_zoom_out.setEnabled(True)
         self.pb_zoom_out.setText("")
         icon9 = QtGui.QIcon()
         icon9.addPixmap(QtGui.QPixmap("res/ZoomOut.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
@@ -113,7 +113,7 @@ class Ui_App_form(object):
         self.pb_zoom_out.setObjectName("pb_zoom_out")
         self.verticalLayout_2.addWidget(self.pb_zoom_out)
         self.pb_home = QtGui.QPushButton(App_form)
-        self.pb_home.setEnabled(False)
+        self.pb_home.setEnabled(True)
         self.pb_home.setText("")
         icon10 = QtGui.QIcon()
         icon10.addPixmap(QtGui.QPixmap("res/House.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
@@ -122,7 +122,7 @@ class Ui_App_form(object):
         self.pb_home.setObjectName("pb_home")
         self.verticalLayout_2.addWidget(self.pb_home)
         self.pb_camera = QtGui.QPushButton(App_form)
-        self.pb_camera.setEnabled(False)
+        self.pb_camera.setEnabled(True)
         self.pb_camera.setText("")
         icon11 = QtGui.QIcon()
         icon11.addPixmap(QtGui.QPixmap("res/Camera.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)

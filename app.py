@@ -18,6 +18,10 @@ class AppCentralWidget(QWidget):
         super(AppCentralWidget, self).__init__(parent=parent)
         self.ui = Ui_App_form()
         self.ui.setupUi(self)
+        self.ui.verticalScrollBar.setMinimum(0)
+        self.ui.verticalScrollBar.setMaximum(2048)
+        self.ui.horizontalScrollBar.setMinimum(0)
+        self.ui.horizontalScrollBar.setMaximum(2048)
         self.controller = Controller(self.ui.w_drawWidg)
         self.model = Model(self.ui.w_drawWidg, self.controller)
         self.ui.w_drawWidg.set_controller(self.controller)
@@ -34,8 +38,11 @@ class AppCentralWidget(QWidget):
         self.ui.pb_zoom_out.clicked.connect(self.controller.zoomOut_button_hit)
         self.ui.sl_alpha.valueChanged.connect(self.change_alpha)
         self.change_alpha(1000)
-        # self.ui.pb_home.clicked.connect(self.controller.)
-        # self.ui.pb_camera.clicked.connect(self.controller.)
+        self.ui.pb_home.clicked.connect(self.controller.toggle_3D_model_display)
+        self.ui.pb_camera.clicked.connect(self.controller.do_load_image)
+        self.ui.verticalScrollBar.sliderMoved.connect(self.controller.v_scrollbar_changed)
+        self.ui.verticalScrollBar.setInvertedAppearance(True)
+        self.ui.horizontalScrollBar.sliderMoved.connect(self.controller.h_scrollbar_changed)
 
     def change_alpha(self, v):
         self.alpha = float(v)/1000

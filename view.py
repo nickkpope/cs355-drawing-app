@@ -3,7 +3,7 @@ from PySide.QtGui import *
 from PySide.QtOpenGL import *
 from OpenGL.GLU import *
 from OpenGL.GL import *
-from model import Color, Point, Shape, Line, Rectangle, Square, Ellipse, Circle, Triangle
+from model import Transform2d, Color, Point, Shape, Line, Rectangle, Square, Ellipse, Circle, Triangle
 import numpy as np
 import copy
 
@@ -63,13 +63,13 @@ class DrawWidget(QWidget):
         super(DrawWidget, self).__init__(parent=parent)
         self.setFixedSize(512, 512)
         self.canvas = GLWidget(self)
-        self.vlayout = QVBoxLayout()
-        self.vlayout.addWidget(self.canvas)
-        self.setLayout(self.vlayout)
+        self.canvas.setFixedSize(512, 512)
+        self.canvas.move(self.pos())
         self.controller = None
         self.model = None
         self.setCursor(Qt.CrossCursor)
         self.clear_state()
+        self.viewport = Viewport(2048, 2048)
 
         self.draw_map = {}
         self.reshape_map = {}
@@ -111,7 +111,7 @@ class DrawWidget(QWidget):
         # glEnable(GL_POINT_SMOOTH)
 
     def to_screen(self, x, y):
-        return Point(x-12, self.size().height()-y-12)  # not sure why widgets are missaligned like this but whatever.
+        return Point(x, self.size().height()-y)  # not sure why widgets are missaligned like this but whatever.
 
     def set_controller(self, controller):
         self.controller = controller
@@ -120,8 +120,8 @@ class DrawWidget(QWidget):
         self.model = model
 
     def mousePressEvent(self, event):
-        # print 'mousePressEvent', event.pos()
-        self.press_pos = self.to_screen(event.pos().x(), event.pos().y())
+        self.press_pos = self.viewport.to_world(self.to_screen(event.pos().x(), event.pos().y()))
+        print 'press', self.press_pos
         if self.controller.draw_mode == 'select':
             handle_clicked = False
             if self.rot_handle:
@@ -130,18 +130,23 @@ class DrawWidget(QWidget):
                     handle_clicked = True
 
             # check active handles for click event
-            print '>>>', self.active_handles
             for i, h in enumerate(self.active_handles):
                 if h.is_inside(self.press_pos):
                     self.selected_handle_index = i
                     handle_clicked = True
                     self.hd_vec = self.press_pos - h.center
                     break
-            print 'handle_clicked', handle_clicked, self.selected_handle_index
+
             found_shape = False
             if not handle_clicked:
                 for s in reversed(self.model.shapes):
-                    if s.is_inside(self.press_pos):
+                    if s.type == 'line':
+                        print 'tolerance', 4/self.controller.zoom_amount()
+                        is_inside = s.is_inside(self.press_pos, tolerance=4/self.controller.zoom_amount())
+                    else:
+                        is_inside = s.is_inside(self.press_pos)
+
+                    if is_inside:
                         self.controller.selected_shape = s
                         print 'found selected shape', self.controller.selected_shape.color
                         found_shape = True
@@ -159,12 +164,12 @@ class DrawWidget(QWidget):
         else:
             self.draw_shape = self.shape_types_map[self.controller.draw_mode](
                 copy.deepcopy(self.controller.draw_color),
-                self.to_screen(event.pos().x(), event.pos().y()))
+                self.press_pos)
             print 'drawing', self.draw_shape
 
     def mouseMoveEvent(self, event):
-        self.clear()
-        self.move_pos = self.to_screen(event.pos().x(), event.pos().y())
+        self.move_pos = self.viewport.to_world(self.to_screen(event.pos().x(), event.pos().y()))
+        # print ' move', self.move_pos
         if self.controller.selected_shape and self.controller.draw_mode == 'select':
             if self.rotating:
                 theta = (self.move_pos - self.controller.selected_shape.center).angle_between(Point(1, 0))
@@ -175,7 +180,6 @@ class DrawWidget(QWidget):
                 self.reshape_map[self.controller.selected_shape.type]()
             else:
                 self.controller.selected_shape.center = self.move_pos - self.d_vec
-
         self.canvas.updateGL()
 
     def mouseReleaseEvent(self, event):
@@ -190,10 +194,11 @@ class DrawWidget(QWidget):
         self.finish(self.to_screen(event.pos().x(), event.pos().y()))
 
     def draw(self):
-        if self.move_pos:
-            self.draw_map[self.controller.draw_mode](self.draw_shape, pos=self.move_pos)
         for shape in self.model.shapes:
             self.draw_map[shape.type](shape)
+
+        if self.move_pos:
+            self.draw_map[self.controller.draw_mode](self.draw_shape, pos=self.move_pos)
 
         if self.controller.selected_shape:
 
@@ -205,18 +210,18 @@ class DrawWidget(QWidget):
             # Draw object handles
             self.active_handles = []
             for p in self.controller.selected_shape.handle_positions():
-                c = Circle(Color(1, 0, 0), self.controller.selected_shape.to_world(p), 10)
+                c = Circle(Color(1, 0, 0), self.controller.selected_shape.to_world(p), 5)
                 self.active_handles.append(c)
-                self.draw_circle(c, fill=False)
+                self.draw_circle(c, fill=False, fixed_size=True)
 
             # Draw rotation handle if needed
             if self.controller.selected_shape.type != 'line':
                 obb = shape.bounding_box()
                 rot_handle_x = max(obb.tl().x, obb.tr().x)
                 rot_handle_y = (obb.tr().y + obb.br().y)/2
-                rot_handle_point = outline.to_world(Point(rot_handle_x, rot_handle_y) + Point(15, 0))
-                self.rot_handle = Circle(Color(1, 0, 0), rot_handle_point, 4)
-                self.draw_circle(self.rot_handle)
+                rot_handle_point = outline.to_world(Point(rot_handle_x, rot_handle_y)) + Point(15, 0)
+                self.rot_handle = Circle(Color(1, 0, 0), rot_handle_point, 5)
+                self.draw_circle(self.rot_handle, fixed_size=True)
 
     def finish(self, pos):
         if self.draw_shape:
@@ -237,7 +242,6 @@ class DrawWidget(QWidget):
                         self.tri_shape.p2 = pos
                 else:
                     self.tri_shape = Triangle(self.draw_shape.color, self.draw_shape.p1)
-
             else:
                 save_shape = True
             if save_shape:
@@ -255,7 +259,7 @@ class DrawWidget(QWidget):
             shape.p2 = pos
 
         if shape.p1 and shape.p2:
-            draw_line(shape.color, shape.p1.vec(), shape.p2.vec())
+            draw_line(shape.color, self.viewport.to_view(shape.p1).vec(), self.viewport.to_view(shape.p2).vec())
 
     def reshape_line(self):
         if self.active_handles[self.selected_handle_index].center == self.controller.selected_shape.p1:
@@ -291,12 +295,11 @@ class DrawWidget(QWidget):
 
         draw_quad(
             shape.color,
-            shape.to_world(Point(-shape.w, +shape.h)).xy(),
-            shape.to_world(Point(+shape.w, +shape.h)).xy(),
-            shape.to_world(Point(+shape.w, -shape.h)).xy(),
-            shape.to_world(Point(-shape.w, -shape.h)).xy(),
-            fill=fill
-        )
+            self.viewport.to_view(shape.to_world(Point(-shape.w, +shape.h))).xy(),
+            self.viewport.to_view(shape.to_world(Point(+shape.w, +shape.h))).xy(),
+            self.viewport.to_view(shape.to_world(Point(+shape.w, -shape.h))).xy(),
+            self.viewport.to_view(shape.to_world(Point(-shape.w, -shape.h))).xy(),
+            fill=fill)
 
     def reshape_rectangle(self):
         self.bounding_box_reshape(self.controller.selected_shape)
@@ -324,10 +327,10 @@ class DrawWidget(QWidget):
 
         draw_quad(
             shape.color,
-            shape.to_world(Point(-shape.size, +shape.size)).xy(),  # top left corner
-            shape.to_world(Point(+shape.size, +shape.size)).xy(),  # top right corner
-            shape.to_world(Point(+shape.size, -shape.size)).xy(),  # bottom right corner
-            shape.to_world(Point(-shape.size, -shape.size)).xy(),  # bottom left corner
+            self.viewport.to_view(shape.to_world(Point(-shape.size, +shape.size))).xy(),  # top left corner
+            self.viewport.to_view(shape.to_world(Point(+shape.size, +shape.size))).xy(),  # top right corner
+            self.viewport.to_view(shape.to_world(Point(+shape.size, -shape.size))).xy(),  # bottom right corner
+            self.viewport.to_view(shape.to_world(Point(-shape.size, -shape.size))).xy(),  # bottom left corner
             fill=fill
         )
 
@@ -353,22 +356,28 @@ class DrawWidget(QWidget):
             else:
                 tly = self.press_pos.y
                 try_ = pos.y
+            shape.center = self.viewport.to_world(Point((tlx + trx)/2, (tly + try_)/2))
 
-            shape.center.x = (tlx + trx)/2
-            shape.center.y = (tly + try_)/2
             shape.w = w/2
             shape.h = h/2
 
         if not (shape.center and shape.w and shape.h):
             return
 
-        rot = {'angle': shape.rotation, 'x': shape.center.x, 'y': shape.center.y}
-        draw_ellipse(shape.color, shape.center.x, shape.center.y, abs(shape.w), abs(shape.h), fill=fill, rot=rot)
+        center = self.viewport.to_view(shape.center)
+        rot = {'angle': shape.rotation, 'x': center.x, 'y': center.y}
+        draw_ellipse(shape.color,
+                     center.x,
+                     center.y,
+                     abs(shape.w)*self.controller.zoom_amount(),
+                     abs(shape.h)*self.controller.zoom_amount(),
+                     fill=fill,
+                     rot=rot)
 
     def reshape_ellipse(self):
         self.bounding_box_reshape(self.controller.selected_shape)
 
-    def draw_circle(self, shape, pos=None, fill=True):
+    def draw_circle(self, shape, pos=None, fill=True, fixed_size=False):
         if pos:
             dw = abs(pos.x - self.press_pos.x)/2
             dh = abs(pos.y - self.press_pos.y)/2
@@ -386,13 +395,24 @@ class DrawWidget(QWidget):
             else:
                 tly = self.press_pos.y
                 try_ = self.press_pos.y - shape.radius*2
+            shape.center = self.viewport.to_view(Point((tlx + trx)/2, (tly + try_)/2))
+            shape.radius = shape.radius*self.controller.zoom_amount()
 
-            shape.center.x = (tlx + trx)/2
-            shape.center.y = (tly + try_)/2
         if not (shape.center and shape.radius):
             return
+        center = self.viewport.to_view(shape.center)
 
-        draw_ellipse(shape.color, shape.center.x, shape.center.y, shape.radius, shape.radius, fill=fill)
+        if fixed_size:
+            radius = shape.radius
+        else:
+            radius = shape.radius*self.controller.zoom_amount()
+
+        draw_ellipse(shape.color,
+                     center.x,
+                     center.y,
+                     radius,
+                     radius,
+                     fill=fill)
 
     def reshape_circle(self):
         move_pos = self.controller.selected_shape.to_object(self.move_pos)
@@ -400,11 +420,10 @@ class DrawWidget(QWidget):
 
     def draw_triangle(self, shape, pos=None, fill=True):
         # convert back to world
-
         draw_triangle(shape.color,
-                      shape.to_world(shape.p1).xy(),
-                      shape.to_world(shape.p2).xy(),
-                      shape.to_world(shape.p3).xy(),
+                      self.viewport.to_view(shape.to_world(shape.p1)).xy(),
+                      self.viewport.to_view(shape.to_world(shape.p2)).xy(),
+                      self.viewport.to_view(shape.to_world(shape.p3)).xy(),
                       fill=fill)
 
     def reshape_triangle(self):
@@ -487,6 +506,33 @@ class DrawWidget(QWidget):
             shape.center += shape.to_world(dp, trans=False)
 
 
+class Viewport():
+    def __init__(self, world_w, world_h):
+        self.world_w = world_w
+        self.world_h = world_h
+        self.set_offset(0, 0)
+        self.set_scale(1)
+
+    def set_offset(self, x, y):
+        self.x = x
+        self.y = y
+
+    def set_scale(self, s):
+        self.s = s
+
+    def to_view(self, p):
+        t = Transform2d()
+        t.scale(self.s, self.s)
+        t.translate(Point(-self.x, -self.y))
+        return t.transform(p)
+
+    def to_world(self, p):
+        t = Transform2d()
+        t.translate(Point(self.x, self.y))
+        t.scale(1/self.s, 1/self.s)
+        return t.transform(p)
+
+
 def draw_line(color, p1, p2):
     glBegin(GL_LINES)
     glColor4f(*color.rgba())
@@ -565,10 +611,10 @@ def draw_ellipse_points(xc, yc, x, y, fill=False):
     glVertex2i(xc-x, yc+y)
     glVertex2i(xc+x, yc-y)
     glVertex2i(xc-x, yc-y)
-    if fill:
-        for i in range(xc-x, xc+x):
-            glVertex2i(i, yc+y)
-            glVertex2i(i, yc-y)
+    # if fill:
+    #     for i in range(xc-x, xc+x):
+    #         glVertex2i(i, yc+y)
+    #         glVertex2i(i, yc-y)
 
 
 def draw_quad(color, tl, tr, br, bl, fill=True):

@@ -41,7 +41,7 @@ class Line(Shape):
     def to_object(self, q):
         return q
 
-    def is_inside(self, q):
+    def is_inside(self, q, tolerance=4):
         if not (self.p1 and self.p2):
             return False
         point_dist = (self.p2 - self.p1).length()
@@ -49,16 +49,10 @@ class Line(Shape):
         t = (q - self.p1).dot(d_hat)
         q_prime = self.p1 + d_hat*t
         dist_from_line = (q - q_prime).length()
-        return dist_from_line < 4 and t > 0 and t < point_dist  # represents a buffer area of 8 around the line
+        return dist_from_line < tolerance and t > 0 and t < point_dist  # represents a buffer area of 8 around the line
 
     def handle_positions(self):
         return self.p1, self.p2
-
-    def to_world(self, p):
-        return p
-
-    def to_object(self, q):
-        return q
 
     def __repr__(self):
         return 'ln(p1=%s p2=%s)' % (self.p1, self.p2)
@@ -339,6 +333,12 @@ class Transform2d():
         self.M = self.M.dot(np.array([[1, 0, p.x],
                                       [0, 1, p.y],
                                       [0, 0, p.w]],
+                                     dtype=float))
+
+    def scale(self, sx, sy):
+        self.M = self.M.dot(np.array([[sx, 0, 0],
+                                      [0, sy, 0],
+                                      [0,  0, 1]],
                                      dtype=float))
 
     def transform(self, p):

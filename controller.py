@@ -5,13 +5,16 @@ class Controller():
     def __init__(self, view):
         self.view = view
         self.draw_mode = 'select'
+        self.viewable_size = 512
         self.selected_shape = None
         self.draw_color = Color(0.0, 0.0, 0.0, 1.0)
         self.selected_draw_color = Color(0.0, 0.0, 0.0, 1.0)
         self.view.update_color_indicator(*self.draw_color.rgba())
-
-    def draw(self):
-        self.view.draw(self.draw_mode)
+        self.zoom_list = [.25, .5, 1.0, 2.0, 4.0]
+        self.zoom_list.sort(reverse=True)
+        self.zoom_level = 2
+        self.set_v_scrollbar_size(512)
+        self.set_h_scrollbar_size(512)
 
     def color_button_hit(self, r, g, b, a):
         color = color = Color(r, g, b, a)
@@ -64,16 +67,44 @@ class Controller():
         self.draw_mode = 'select'
 
     def zoomIn_button_hit(self):
-        pass
+        if self.zoom_in():
+            self.update_zoom()
+            zoom_width = (512/self.zoom_amount())/2
+            newPos = min(self.h_scrollbar_position()+zoom_width, 2048)
+            self.set_h_scrollbar_position(newPos)
+            self.set_v_scrollbar_position(newPos)
 
     def zoomOut_button_hit(self):
-        pass
+        if self.zoom_out():
+            self.update_zoom()
+            zoom_width = (512/self.zoom_amount())/4
+            newPos = max(self.h_scrollbar_position()-zoom_width, 0)
+            self.set_h_scrollbar_position(newPos)
+            self.set_v_scrollbar_position(newPos)
+
+    def update_zoom(self):
+        self.view.viewport.set_scale(self.zoom_amount())
+        view_zoom = 512*1/self.zoom_amount()
+        self.set_h_maximum(2048-view_zoom)
+        self.set_v_maximum(2048-view_zoom)
+        self.set_v_scrollbar_size(view_zoom)
+        self.set_h_scrollbar_size(view_zoom)
+
+    def set_h_maximum(self, m):
+        self.view.parent().ui.horizontalScrollBar.setMaximum(m)
+
+    def set_v_maximum(self, m):
+        self.view.parent().ui.verticalScrollBar.setMaximum(m)
 
     def h_scrollbar_changed(self, value):
-        pass
+        self.view.viewport.set_offset(value, self.view.viewport.y)
+        self.view.draw()
+        self.view.canvas.updateGL()
 
     def v_scrollbar_changed(self, value):
-        pass
+        self.view.viewport.set_offset(self.view.viewport.x, value)
+        self.view.draw()
+        self.view.canvas.updateGL()
 
     def toggle_3D_model_display(self):
         pass
@@ -104,3 +135,48 @@ class Controller():
 
     def toggle_background_display(self):
         pass
+
+    # scroll bar interaction
+
+    def v_scrollbar_size(self):
+        return self.view.parent().ui.verticalScrollBar.pageStep()
+
+    def h_scrollbar_size(self):
+        return self.view.parent().ui.horizontalScrollBar.pageStep()
+
+    def v_scrollbar_position(self):
+        return self.view.parent().ui.verticalScrollBar.sliderPosition()
+
+    def h_scrollbar_position(self):
+        return self.view.parent().ui.horizontalScrollBar.sliderPosition()
+
+    def set_v_scrollbar_size(self, size):
+        self.view.parent().ui.verticalScrollBar.setPageStep(size)
+
+    def set_h_scrollbar_size(self, size):
+            self.view.parent().ui.horizontalScrollBar.setPageStep(size)
+
+    def set_v_scrollbar_position(self, position):
+        self.view.parent().ui.verticalScrollBar.setSliderPosition(position)
+        self.v_scrollbar_changed(position)
+
+    def set_h_scrollbar_position(self, position):
+        self.view.parent().ui.horizontalScrollBar.setSliderPosition(position)
+        self.h_scrollbar_changed(position)
+
+    def zoom_amount(self):
+        return self.zoom_list[self.zoom_level]
+
+    def zoom_in(self):
+        if self.zoom_level > 0:
+            self.zoom_level -= 1
+            return True
+        else:
+            return False
+
+    def zoom_out(self):
+        if self.zoom_level < len(self.zoom_list)-1:
+            self.zoom_level += 1
+            return True
+        else:
+            return False

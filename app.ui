@@ -184,7 +184,7 @@
      <item>
       <widget class="QPushButton" name="pb_zoom_in">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="text">
         <string/>
@@ -204,7 +204,7 @@
      <item>
       <widget class="QPushButton" name="pb_zoom_out">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="text">
         <string/>
@@ -224,7 +224,7 @@
      <item>
       <widget class="QPushButton" name="pb_home">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="text">
         <string/>
@@ -244,7 +244,7 @@
      <item>
       <widget class="QPushButton" name="pb_camera">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="text">
         <string/>
