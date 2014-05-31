@@ -3,7 +3,7 @@ from PySide.QtGui import *
 from PySide.QtOpenGL import *
 from OpenGL.GLU import *
 from OpenGL.GL import *
-from model import Transform2d, Color, Point, Shape, Line, Rectangle, Square, Ellipse, Circle, Triangle
+from model import Transform2d, Color, Point, Shape, Line, Rectangle, Square, Ellipse, Circle, Triangle, Camera
 import numpy as np
 import copy
 
@@ -70,6 +70,7 @@ class DrawWidget(QWidget):
         self.setCursor(Qt.CrossCursor)
         self.clear_state()
         self.viewport = Viewport(2048, 2048)
+        self.camera = GL_Camera(512, 512, 0)
 
         self.draw_map = {}
         self.reshape_map = {}

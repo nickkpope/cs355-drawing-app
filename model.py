@@ -188,6 +188,46 @@ class Triangle(Shape):
         return 'tri(p1=%s p2=%s p3=%s)' % (self.p1, self.p2, self.p3)
 
 
+class Camera():
+    def __init__(self, w, h):
+        self.w = w
+        self.h = h
+        self.fovy = 0
+        self.persp = True
+
+    def move_forward(self, amount):
+        pass
+
+    def move_backward(self, amount):
+        pass
+
+    def move_left(self, amount):
+        pass
+
+    def move_right(self, amount):
+        pass
+
+    def turn_left(self, amount):
+        pass
+
+    def turn_right(self, amount):
+        pass
+
+    def turn_y(self, amount):
+        pass
+
+    def set_camera(self):
+        pass
+
+
+class House():
+    def __init__(self, x, y, z):
+        pass
+
+    def shapes(self):
+        pass
+
+
 class Model():
     def __init__(self, view, controller):
         self.shapes = []

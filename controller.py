@@ -109,7 +109,7 @@ class Controller():
     def toggle_3D_model_display(self):
         pass
 
-    def key_pressed(self, iterator):
+    def key_pressed(self, event):
         pass
 
     def do_edge_detection(self):
