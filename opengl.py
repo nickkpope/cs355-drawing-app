@@ -6,6 +6,11 @@ from OpenGL.GLU import *
 from OpenGL.GL import *
 from math import *
 
+houses = [(0, 0, 0)]
+for i in range(-100, 100, 10):
+    for j in range(0, 100, 10):
+        houses.append((i, 0, j))
+
 
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
@@ -38,6 +43,8 @@ class MainWindow(QMainWindow):
             self.camera.view_ortho()
         elif key == Qt.Key_P:
             self.camera.view_persp()
+        elif key == Qt.Key_H:
+            self.camera.reset()
 
         self.camera.set_camera()
         self.glwidg.updateGL()
@@ -57,7 +64,8 @@ class GLWidget(QGLWidget):
     def paintGL(self):
         glClearColor(0, 0, 0, 0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        draw_house()
+        for i in houses:
+            draw_house(offset=i)
         glFlush()
 
 
@@ -66,11 +74,15 @@ class Camera():
         self.w = w
         self.h = h
         self.fovy = 0
+        self.reset()
+
+    def reset(self):
         self.persp = True
         self.x = 0
         self.y = 0
         self.z = 10.0
         self.roty = 0.0
+
 
     def move_forward(self, amount):
         self.z -= sin(radians(self.roty)+pi/2)*amount
@@ -120,7 +132,7 @@ class Camera():
             # glOrtho(0, self.w, 0, self.h, -1.0, 1.0)
             # gluLookAt( eyeX , eyeY , eyeZ , centerX , centerY , centerZ , upX , upY , upZ )
             # glOrtho(-3.7, 3.7, -3.7, 3.7, .01, 100.0)
-            glOrtho(-3.7, 3.7, -3.7, 3.7, .01, 100.0)
+            # glOrtho(-3.7, 3.7, -3.7, 3.7, .01, 100.0)
             try:
                 glOrtho(self.z*-.1, self.z*.1, self.z*-.1, self.z*.1, .01, 100.0)
             except:
@@ -137,10 +149,11 @@ class Camera():
                            [0, 0,  0, 1]])
 
 
-def draw_house():
+def draw_house(offset=(0, 0, 0)):
     glMatrixMode(GL_MODELVIEW)
     glPushMatrix()
     glScale(1.5, 1, 1)
+    glTranslate(*offset)
     glBegin(GL_LINES)
     glColor4f(0, 1, 1, 0)
 
