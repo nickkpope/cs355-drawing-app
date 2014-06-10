@@ -55,6 +55,9 @@ class AppCentralWidget(QWidget):
         color.setAlphaF(self.alpha)
         self.controller.color_button_hit(color.redF(), color.greenF(), color.blueF(), self.alpha)
 
+    def keyPressEvent(self, event):
+        self.controller.key_pressed(event)
+
 
 def main():
     app = QApplication(sys.argv)

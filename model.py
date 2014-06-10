@@ -1,4 +1,5 @@
 import numpy as np
+from math import *
 
 
 class Shape():
@@ -188,46 +189,6 @@ class Triangle(Shape):
         return 'tri(p1=%s p2=%s p3=%s)' % (self.p1, self.p2, self.p3)
 
 
-class Camera():
-    def __init__(self, w, h):
-        self.w = w
-        self.h = h
-        self.fovy = 0
-        self.persp = True
-
-    def move_forward(self, amount):
-        pass
-
-    def move_backward(self, amount):
-        pass
-
-    def move_left(self, amount):
-        pass
-
-    def move_right(self, amount):
-        pass
-
-    def turn_left(self, amount):
-        pass
-
-    def turn_right(self, amount):
-        pass
-
-    def turn_y(self, amount):
-        pass
-
-    def set_camera(self):
-        pass
-
-
-class House():
-    def __init__(self, x, y, z):
-        pass
-
-    def shapes(self):
-        pass
-
-
 class Model():
     def __init__(self, view, controller):
         self.shapes = []
@@ -366,7 +327,7 @@ class Transform2d():
         '''theta must be in radians'''
         self.M = self.M.dot(np.array([[np.cos(theta), -np.sin(theta), 0],
                                       [np.sin(theta),  np.cos(theta), 0],
-                                      [0,                0,               1]],
+                                      [0,                0,           1]],
                                      dtype=float))
 
     def translate(self, p):
@@ -420,3 +381,195 @@ class Color(Vector):
 
     def __repr__(self):
         return 'Color(%s %s %s %s)' % self.rgba()
+
+
+class Camera():
+    def __init__(self, w, h):
+        self.w = w
+        self.h = h
+        self.fovy = 45.0
+        self.reset()
+        self.set_camera()
+
+    def load_identity(self):
+        self.M = np.array([[1, 0, 0, 0],
+                           [0, 1, 0, 0],
+                           [0, 0, 1, 0],
+                           [0, 0, 0, 1]],
+                          dtype=float)
+
+    def reset(self):
+        self.persp = True
+        self.x = 0
+        self.y = 0
+        self.z = 10.0
+        self.roty = 0.0
+        self.load_identity()
+
+    def move_forward(self, amount):
+        self.z -= sin(radians(self.roty)+pi/2)*amount
+        self.x -= cos(radians(self.roty)+pi/2)*amount
+
+    def move_backward(self, amount):
+        self.z += sin(radians(self.roty)+pi/2)*amount
+        self.x += cos(radians(self.roty)+pi/2)*amount
+
+    def move_up(self, amount):
+        self.y += amount
+
+    def move_down(self, amount):
+        self.y -= amount
+
+    def move_left(self, amount):
+        self.z -= sin(radians(self.roty))*amount
+        self.x -= cos(radians(self.roty))*amount
+
+    def move_right(self, amount):
+        self.z += sin(radians(self.roty))*amount
+        self.x += cos(radians(self.roty))*amount
+
+    def turn_left(self, amount):
+        self.turn_y(-abs(amount))
+
+    def turn_right(self, amount):
+        self.turn_y(abs(amount))
+
+    def turn_y(self, amount):
+        '''IN DEGREES'''
+        self.roty += amount
+
+    def view_ortho(self):
+        self.persp = False
+
+    def view_persp(self):
+        self.persp = True
+
+    def set_camera(self):
+        self.load_identity()
+        theta = radians(self.roty)
+
+        # apply perspective clip matrix
+        aspect = float(self.w)/float(self.h)
+        zy = 1/tan(radians(self.fovy/2))
+        zx = zy/aspect
+        n = .1
+        f = 50
+        a = (f + n)/(f - n)
+        b = (2*n*f)/(f - n)
+
+        self.M = self.M.dot(np.array([[zx, 0,  0, 0],
+                                      [0,  zy, 0, 0],
+                                      [0,  0,  a, b],
+                                      [0,  0,  -1, 0]],
+                                     dtype=float))
+
+        # apply rotation
+        self.M = self.M.dot(np.array([[+cos(theta), 0, sin(theta), 0],
+                                      [0,           1, 0,          0],
+                                      [-sin(theta), 0, cos(theta), 0],
+                                      [0,           0, 0,          1]],
+                                     dtype=float))
+
+        # apply translation
+        self.M = self.M.dot(np.array([[1, 0, 0, -self.x],
+                                      [0, 1, 0, -self.y],
+                                      [0, 0, 1, -self.z],
+                                      [0, 0, 0,       1]],
+                                     dtype=float))
+
+    def to_camera(self, x, y, z, w=1.0):
+        # reshape back to a regular list again, and convert to floats
+        return [float(i) for i in self.M.dot(np.array([[x], [y], [z], [w]], dtype=float)).reshape(-1)]
+
+
+def house_lines(offset=None):
+    lines = []
+    if offset:
+        offset = offset[0]
+
+    def add_line_point(x, y, z):
+        if len(lines) == 0:
+            lines.append([(x*1.5+offset, y, z)])
+        else:
+            if len(lines[-1]) == 2:
+                lines.append([(x*1.5+offset, y, z)])
+            else:
+                lines[-1].append((x*1.5+offset, y, z))
+
+   # Bottom Face
+    # rear bottom line
+    add_line_point(-1, -1, -1)
+    add_line_point(+1, -1, -1)
+    # front bottom line
+    add_line_point(-1, -1, +1)
+    add_line_point(+1, -1, +1)
+    # left bottom line
+    add_line_point(-1, -1, -1)
+    add_line_point(-1, -1, +1)
+    # right bottom line
+    add_line_point(+1, -1, -1)
+    add_line_point(+1, -1, +1)
+
+    # Top Face
+    # rear top line
+    add_line_point(-1, +1, -1)
+    add_line_point(+1, +1, -1)
+    # front top line
+    add_line_point(-1, +1, +1)
+    add_line_point(+1, +1, +1)
+    # left top line
+    add_line_point(-1, +1, -1)
+    add_line_point(-1, +1, +1)
+    # right top line
+    add_line_point(+1, +1, -1)
+    add_line_point(+1, +1, +1)
+
+    # Left Face
+    # left back line
+    add_line_point(-1, -1, -1)
+    add_line_point(-1, +1, -1)
+    # left front line
+    add_line_point(-1, -1, +1)
+    add_line_point(-1, +1, +1)
+    # left top line
+    add_line_point(-1, +1, -1)
+    add_line_point(-1, +1, +1)
+
+    # Right Face
+    # right back line
+    add_line_point(+1, -1, -1)
+    add_line_point(+1, +1, -1)
+    # right front line
+    add_line_point(+1, -1, +1)
+    add_line_point(+1, +1, +1)
+    # right top line
+    add_line_point(+1, +1, -1)
+    add_line_point(+1, +1, +1)
+
+    # Front Door
+    # left side
+    add_line_point(-.25, -1, +1)
+    add_line_point(-.25, .5, +1)
+    # right side
+    add_line_point(+.25, -1.0, +1)
+    add_line_point(+.25, +0.5, +1)
+    # top side
+    add_line_point(-.25, +0.5, +1)
+    add_line_point(+.25, +0.5, +1)
+
+    # Roof
+    add_line_point(0, 1.5, +1)
+    add_line_point(0, 1.5, -1)
+
+    add_line_point(-1, 1.0, +1)
+    add_line_point(+0, 1.5, +1)
+
+    add_line_point(+0, 1.5, +1)
+    add_line_point(+1, 1.0, +1)
+
+    add_line_point(-1, 1.0, -1)
+    add_line_point(+0, 1.5, -1)
+    add_line_point(+0, 1.5, -1)
+    add_line_point(+1, 1.0, -1)
+
+    return lines

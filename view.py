@@ -3,7 +3,7 @@ from PySide.QtGui import *
 from PySide.QtOpenGL import *
 from OpenGL.GLU import *
 from OpenGL.GL import *
-from model import Transform2d, Color, Point, Shape, Line, Rectangle, Square, Ellipse, Circle, Triangle, Camera
+from model import Transform2d, Color, Point, Shape, Line, Rectangle, Square, Ellipse, Circle, Triangle
 import numpy as np
 import copy
 
@@ -36,6 +36,7 @@ class GLWidget(QGLWidget):
         QGLWidget.__init__(self, parent)
         self.parent = parent
         self.setFocus(Qt.OtherFocusReason)
+        self.clear_color = (1, 1, 1, 1)
 
     def initializeGL(self):
         self.qglClearColor(QColor(0, 0, 0))
@@ -52,7 +53,7 @@ class GLWidget(QGLWidget):
         glLoadIdentity()
 
     def paintGL(self):
-        glClearColor(1, 1, 1, 1)
+        glClearColor(*self.clear_color)
         glClear(GL_COLOR_BUFFER_BIT)
         self.parent.draw()
         glFlush()
@@ -70,7 +71,6 @@ class DrawWidget(QWidget):
         self.setCursor(Qt.CrossCursor)
         self.clear_state()
         self.viewport = Viewport(2048, 2048)
-        self.camera = GL_Camera(512, 512, 0)
 
         self.draw_map = {}
         self.reshape_map = {}
@@ -200,6 +200,9 @@ class DrawWidget(QWidget):
 
         if self.move_pos:
             self.draw_map[self.controller.draw_mode](self.draw_shape, pos=self.move_pos)
+
+        if self.controller.threeD_mode:
+            self.draw_house(self.controller.house_lines())
 
         if self.controller.selected_shape:
 
@@ -441,6 +444,41 @@ class DrawWidget(QWidget):
             self.controller.selected_shape.p3 = move_pos
         else:
             print 'could not find triangle point on update'
+
+    def draw_house(self, houses):
+        for lines in houses:
+            # print 'drawing house, yay!'
+            for l in lines:
+                # perform clip test
+                p1 = l[0]
+                p2 = l[1]
+
+                p1x_out = p1[0] < -p1[3] or p1[0] > p1[3]
+                p1y_out = p1[1] < -p1[3] or p1[1] > p1[3]
+                p1z_out = p1[2] < -p1[3] or p1[2] > p1[3]
+
+                p1_out = p1x_out or p1y_out or p1z_out
+
+                p2x_out = p2[0] < -p2[3] or p2[0] > p2[3]
+                p2y_out = p2[1] < -p2[3] or p2[1] > p2[3]
+                p2z_out = p2[2] < -p2[3] or p2[2] > p2[3]
+
+                p2_out = p2x_out or p2y_out or p2z_out
+
+                if p1_out or p2_out:
+                    continue
+
+                # divide by w
+                p1 = [i/l[0][3] for i in l[0][:2]]
+                p2 = [i/l[1][3] for i in l[1][:2]]
+
+                # apply viewport transformation
+                p1 = [1080+i*2048 for i in p1]
+                p2 = [1080+i*2048 for i in p2]
+
+                # draw line
+                vl = Line(Color(0, 1, 1), Point(*p1), Point(*p2))
+                self.draw_line(vl)  # applies viewing transformation
 
     def square_bbox_reshape(self, shape):
             # determine which corner was picked

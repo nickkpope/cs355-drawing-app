@@ -83,7 +83,6 @@ class Camera():
         self.z = 10.0
         self.roty = 0.0
 
-
     def move_forward(self, amount):
         self.z -= sin(radians(self.roty)+pi/2)*amount
         self.x -= cos(radians(self.roty)+pi/2)*amount
@@ -152,89 +151,107 @@ class Camera():
 def draw_house(offset=(0, 0, 0)):
     glMatrixMode(GL_MODELVIEW)
     glPushMatrix()
-    glScale(1.5, 1, 1)
     glTranslate(*offset)
     glBegin(GL_LINES)
     glColor4f(0, 1, 1, 0)
 
-    # Bottom Face
-    # rear bottom line
-    glVertex3f(-1, -1, -1)
-    glVertex3f(+1, -1, -1)
-    # front bottom line
-    glVertex3f(-1, -1, +1)
-    glVertex3f(+1, -1, +1)
-    # left bottom line
-    glVertex3f(-1, -1, -1)
-    glVertex3f(-1, -1, +1)
-    # right bottom line
-    glVertex3f(+1, -1, -1)
-    glVertex3f(+1, -1, +1)
-
-    # Top Face
-    # rear top line
-    glVertex3f(-1, +1, -1)
-    glVertex3f(+1, +1, -1)
-    # front top line
-    glVertex3f(-1, +1, +1)
-    glVertex3f(+1, +1, +1)
-    # left top line
-    glVertex3f(-1, +1, -1)
-    glVertex3f(-1, +1, +1)
-    # right top line
-    glVertex3f(+1, +1, -1)
-    glVertex3f(+1, +1, +1)
-
-    # Left Face
-    # left back line
-    glVertex3f(-1, -1, -1)
-    glVertex3f(-1, +1, -1)
-    # left front line
-    glVertex3f(-1, -1, +1)
-    glVertex3f(-1, +1, +1)
-    # left top line
-    glVertex3f(-1, +1, -1)
-    glVertex3f(-1, +1, +1)
-
-    # Right Face
-    # right back line
-    glVertex3f(+1, -1, -1)
-    glVertex3f(+1, +1, -1)
-    # right front line
-    glVertex3f(+1, -1, +1)
-    glVertex3f(+1, +1, +1)
-    # right top line
-    glVertex3f(+1, +1, -1)
-    glVertex3f(+1, +1, +1)
-
-    # Front Door
-    # left side
-    glVertex3f(-.25, -1, +1)
-    glVertex3f(-.25, .5, +1)
-    # right side
-    glVertex3f(+.25, -1.0, +1)
-    glVertex3f(+.25, +0.5, +1)
-    # top side
-    glVertex3f(-.25, +0.5, +1)
-    glVertex3f(+.25, +0.5, +1)
-
-    # Roof
-    glVertex3f(0, 1.5, +1)
-    glVertex3f(0, 1.5, -1)
-
-    glVertex3f(-1, 1.0, +1)
-    glVertex3f(+0, 1.5, +1)
-
-    glVertex3f(+0, 1.5, +1)
-    glVertex3f(+1, 1.0, +1)
-
-    glVertex3f(-1, 1.0, -1)
-    glVertex3f(+0, 1.5, -1)
-    glVertex3f(+0, 1.5, -1)
-    glVertex3f(+1, 1.0, -1)
+    for l in house_lines():
+        glVertex3f(*l[0])
+        glVertex3f(*l[1])
 
     glEnd()
     glPopMatrix()
+
+
+def house_lines():
+    lines = []
+
+    def add_line_point(x, y, z):
+        if len(lines) == 0:
+            lines.append([(x*1.5, y, z)])
+        else:
+            if len(lines[-1]) == 2:
+                lines.append([(x*1.5, y, z)])
+            else:
+                lines[-1].append((x*1.5, y, z))
+
+   # Bottom Face
+    # rear bottom line
+    add_line_point(-1, -1, -1)
+    add_line_point(+1, -1, -1)
+    # front bottom line
+    add_line_point(-1, -1, +1)
+    add_line_point(+1, -1, +1)
+    # left bottom line
+    add_line_point(-1, -1, -1)
+    add_line_point(-1, -1, +1)
+    # right bottom line
+    add_line_point(+1, -1, -1)
+    add_line_point(+1, -1, +1)
+
+    # Top Face
+    # rear top line
+    add_line_point(-1, +1, -1)
+    add_line_point(+1, +1, -1)
+    # front top line
+    add_line_point(-1, +1, +1)
+    add_line_point(+1, +1, +1)
+    # left top line
+    add_line_point(-1, +1, -1)
+    add_line_point(-1, +1, +1)
+    # right top line
+    add_line_point(+1, +1, -1)
+    add_line_point(+1, +1, +1)
+
+    # Left Face
+    # left back line
+    add_line_point(-1, -1, -1)
+    add_line_point(-1, +1, -1)
+    # left front line
+    add_line_point(-1, -1, +1)
+    add_line_point(-1, +1, +1)
+    # left top line
+    add_line_point(-1, +1, -1)
+    add_line_point(-1, +1, +1)
+
+    # Right Face
+    # right back line
+    add_line_point(+1, -1, -1)
+    add_line_point(+1, +1, -1)
+    # right front line
+    add_line_point(+1, -1, +1)
+    add_line_point(+1, +1, +1)
+    # right top line
+    add_line_point(+1, +1, -1)
+    add_line_point(+1, +1, +1)
+
+    # Front Door
+    # left side
+    add_line_point(-.25, -1, +1)
+    add_line_point(-.25, .5, +1)
+    # right side
+    add_line_point(+.25, -1.0, +1)
+    add_line_point(+.25, +0.5, +1)
+    # top side
+    add_line_point(-.25, +0.5, +1)
+    add_line_point(+.25, +0.5, +1)
+
+    # Roof
+    add_line_point(0, 1.5, +1)
+    add_line_point(0, 1.5, -1)
+
+    add_line_point(-1, 1.0, +1)
+    add_line_point(+0, 1.5, +1)
+
+    add_line_point(+0, 1.5, +1)
+    add_line_point(+1, 1.0, +1)
+
+    add_line_point(-1, 1.0, -1)
+    add_line_point(+0, 1.5, -1)
+    add_line_point(+0, 1.5, -1)
+    add_line_point(+1, 1.0, -1)
+
+    return lines
 
 
 def main():

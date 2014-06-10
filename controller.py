@@ -1,4 +1,6 @@
-from model import Color
+from model import Color, Point, Camera, house_lines
+from PySide.QtCore import *
+from PySide.QtGui import *
 
 
 class Controller():
@@ -15,6 +17,8 @@ class Controller():
         self.zoom_level = 2
         self.set_v_scrollbar_size(512)
         self.set_h_scrollbar_size(512)
+        self.camera = Camera(2048, 2048)
+        self.threeD_mode = False
 
     def color_button_hit(self, r, g, b, a):
         color = color = Color(r, g, b, a)
@@ -107,10 +111,41 @@ class Controller():
         self.view.canvas.updateGL()
 
     def toggle_3D_model_display(self):
-        pass
+        self.threeD_mode = self.threeD_mode is False
+        if self.threeD_mode:
+            self.view.canvas.clear_color = (0, 0, 0, 0)
+        else:
+            self.view.canvas.clear_color = (1, 1, 1, 1)
+        self.view.draw()
+        self.view.canvas.updateGL()
 
     def key_pressed(self, event):
-        pass
+        if not self.threeD_mode:
+            return
+
+        key = event.key()
+        move_amount = .5
+        if key == Qt.Key_A:
+            self.camera.move_left(move_amount)
+        elif key == Qt.Key_D:
+            self.camera.move_right(move_amount)
+        elif key == Qt.Key_W:
+            self.camera.move_forward(move_amount)
+        elif key == Qt.Key_S:
+            self.camera.move_backward(move_amount)
+        elif key == Qt.Key_Q:
+            self.camera.turn_left(move_amount+2)
+        elif key == Qt.Key_E:
+            self.camera.turn_right(move_amount+2)
+        elif key == Qt.Key_R:
+            self.camera.move_up(move_amount)
+        elif key == Qt.Key_F:
+            self.camera.move_down(move_amount)
+        elif key == Qt.Key_H:
+            self.camera.reset()
+
+        self.camera.set_camera()
+        self.view.canvas.updateGL()
 
     def do_edge_detection(self):
         pass
@@ -180,3 +215,13 @@ class Controller():
             return True
         else:
             return False
+
+    def house_lines(self):
+        ret = []
+        for i in range(-64, 64, 8):
+            lines = house_lines(offset=(i, 0, 0))
+            ret_lines = []
+            for l in lines:
+                ret_lines.append([self.camera.to_camera(*l[0]), self.camera.to_camera(*l[1])])
+            ret.append(ret_lines)
+        return ret
