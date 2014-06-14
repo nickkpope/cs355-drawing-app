@@ -37,6 +37,7 @@ class GLWidget(QGLWidget):
         self.parent = parent
         self.setFocus(Qt.OtherFocusReason)
         self.clear_color = (1, 1, 1, 1)
+        self.texture_id = None
 
     def initializeGL(self):
         self.qglClearColor(QColor(0, 0, 0))
@@ -56,7 +57,72 @@ class GLWidget(QGLWidget):
         glClearColor(*self.clear_color)
         glClear(GL_COLOR_BUFFER_BIT)
         self.parent.draw()
+
+        if not self.texture_id is None:
+            self.draw_image()
         glFlush()
+
+    def set_image(self, image):
+        print 'setting image'
+        image.convertToFormat(QImage.Format_ARGB32)
+        data = QGLWidget.convertToGLFormat(image)
+        data.convertToFormat(QImage.Format_ARGB32)
+        self.iwidth = image.width()
+        self.iheight = image.height()
+
+        # generate a texture id, make it current
+        self.texture_id = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_2D, self.texture_id)
+
+        # texture mode and parameters controlling wrapping and scaling
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE)
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+
+        # glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE)
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, self.iwidth, self.iheight, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, str(data.bits()))
+
+        glDisable(GL_TEXTURE_2D)
+
+    def draw_image(self):
+        glPushAttrib(GL_TEXTURE_BIT | GL_ENABLE_BIT | GL_TRANSFORM_BIT | GL_DEPTH_BUFFER_BIT)
+        glDisable(GL_DEPTH_TEST)
+
+        # map the image data to the texture. note that if the input
+        # type is GL_FLOAT, the values must be in the range [0..1]
+        # glDepthMask(False)
+        glEnable(GL_TEXTURE_2D)
+        glBindTexture(GL_TEXTURE_2D, self.texture_id)
+
+        glColor3f(1, 1, 1)
+
+        glBegin(GL_QUADS)
+        # glVertex2f(-self.iwidth, self.iheight)
+        # glTexCoord2f(-self.iwidth, self.iheight)
+        # glVertex2f(self.iwidth, self.iheight)
+        # glTexCoord2f(self.iwidth, self.iheight)
+        # glVertex2f(self.iwidth, -self.iheight)
+        # glTexCoord2f(self.iwidth, -self.iheight)
+        # glVertex2f(-self.iwidth, -self.iheight)
+        # glTexCoord2f(-self.iwidth, -self.iheight)
+
+        glVertex2f(0, 0)
+        glTexCoord2f(0, 0)
+        glVertex2f(0, self.iheight)
+        glTexCoord2f(0, self.iheight)
+        glVertex2f(self.iwidth, self.iheight)
+        glTexCoord2f(self.iwidth, self.iheight)
+        glVertex2f(self.iwidth, 0)
+        glTexCoord2f(self.iwidth, 0)
+
+        glEnd()
+        glDisable(GL_TEXTURE_2D)
+
+        glPopAttrib()
 
 
 class DrawWidget(QWidget):
@@ -479,6 +545,10 @@ class DrawWidget(QWidget):
                 # draw line
                 vl = Line(Color(0, 1, 1), Point(*p1), Point(*p2))
                 self.draw_line(vl)  # applies viewing transformation
+
+    def draw_image(self, image):
+        self.canvas.set_image(image)
+        self.canvas.updateGL()
 
     def square_bbox_reshape(self, shape):
             # determine which corner was picked

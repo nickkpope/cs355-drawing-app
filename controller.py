@@ -160,13 +160,13 @@ class Controller():
         pass
 
     def do_change_contrast(self, contrast_amount_num):
-        pass
+        print 'changing contrast by', contrast_amount_num
 
     def do_change_brightness(self, brightness_amount_num):
-        pass
+        print 'changing brightness by', brightness_amount_num
 
     def do_load_image(self, open_image):
-        pass
+        self.view.draw_image(open_image)
 
     def toggle_background_display(self):
         pass

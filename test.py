@@ -1,152 +1,118 @@
-#!/usr/bin/env python
 
-############################################################################
-##
-## Copyright (C) 2006-2006 Trolltech ASA. All rights reserved.
-##
-## This file is part of the example classes of the Qt Toolkit.
-##
-## This file may be used under the terms of the GNU General Public
-## License version 2.0 as published by the Free Software Foundation
-## and appearing in the file LICENSE.GPL included in the packaging of
-## this file.  Please review the following information to ensure GNU
-## General Public Licensing requirements will be met:
-## http://www.trolltech.com/products/qt/opensource.html
-##
-## If you are unsure which license is appropriate for your use, please
-## review the following information:
-## http://www.trolltech.com/products/qt/licensing.html or contact the
-## sales department at sales@trolltech.com.
-##
-## This file is provided AS IS with NO WARRANTY OF ANY KIND, INCLUDING THE
-## WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
-##
-############################################################################
+import shader
+from rotation import Rotation
+from PySide.QtGui import QImage
+from PySide.QtOpenGL import QGLWidget
+from OpenGL.GL import *
+import numpy
 
-import sys
-import math
-from PySide.QtCore import *
-from PySide.QtGui import *
-from PySide.QtOpenGL import *
-
-try:
-    from OpenGL import GL
-except ImportError:
-    app = QApplication(sys.argv)
-    QMessageBox.critical(None, "OpenGL 2dpainting",
-                            "PyOpenGL must be installed to run this example.",
-                            QMessageBox.Ok | QMessageBox.Default,
-                            QMessageBox.NoButton)
-    sys.exit(1)
-
-
-class Helper:
+class SkyBoxShaderProgram(shader.ShaderProgram):
     def __init__(self):
-        gradient = QLinearGradient(QPointF(50, -20), QPointF(80, 20))
-        gradient.setColorAt(0.0, Qt.white)
-        gradient.setColorAt(1.0, QColor(0xa6, 0xce, 0x39))
+        shader.ShaderProgram.__init__(self)
+        self.vertex_shader = """
+varying vec4 position;
+uniform samplerCube skybox;
+uniform float eye_shift;
+void main()
+{
+    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+    position = gl_Vertex;
+    position.x += eye_shift;
+}       
+"""
+        self.fragment_shader = """
+varying vec4 position;
+uniform samplerCube skybox;
+uniform float eye_shift;
+void main()
+{
+    vec3 tex_coord = -position.xyz;
+    vec4 box_color = textureCube(skybox, tex_coord);
+    gl_FragColor = box_color;
+}
+"""
 
-        self.background = QBrush(QColor(64, 32, 64))
-        self.circleBrush = QBrush(gradient)
-        self.circlePen = QPen(Qt.black)
-        self.circlePen.setWidth(1)
-        self.textPen = QPen(Qt.white)
-        self.textFont = QFont()
-        self.textFont.setPixelSize(50)
-
-    def paint(self, painter, event, elapsed):
-        painter.fillRect(event.rect(), self.background)
-        painter.translate(100, 100)
-
-        painter.save()
-        painter.setBrush(self.circleBrush)
-        painter.setPen(self.circlePen)
-        painter.rotate(elapsed * 0.030)
-
-        r = elapsed/1000.0
-        n = 30
-        for i in range(n):
-            painter.rotate(30)
-            radius = 0 + 120.0*((i+r)/n)
-            circleRadius = 1 + ((i+r)/n)*20
-            painter.drawEllipse(QRectF(radius, -circleRadius,
-                                       circleRadius*2, circleRadius*2))
-
-        painter.restore()
-
-        painter.setPen(self.textPen)
-        painter.setFont(self.textFont)
-        painter.drawText(QRect(-50, -50, 100, 100), Qt.AlignCenter, "Qt")
+    def __enter__(self):
+        shader.ShaderProgram.__enter__(self)
+        self.skybox = glGetUniformLocation(self.shader_program, "skybox")
+        self.eye_shift = glGetUniformLocation(self.shader_program, "eye_shift")
 
 
-class Widget(QWidget):
-    def __init__(self, helper, parent = None):
-        QWidget.__init__(self, parent)
+def fname_to_tex(file_name):
+        img = QImage()
+        img.load(file_name)
+        img2 = QGLWidget.convertToGLFormat(img)
+        img3 = str(img2.bits())
+        return img3
 
-        self.helper = helper
-        self.elapsed = 0
-        self.setFixedSize(200, 200)
+class SkyBox:
+    def __init__(self):
+        self.is_initialized = False
+        self.shader = SkyBoxShaderProgram()
 
-    def animate(self):
-        self.elapsed = (self.elapsed + self.sender().interval()) % 1000
-        self.repaint()
-
-    def paintEvent(self, event):
-        painter = QPainter()
-        painter.begin(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        self.helper.paint(painter, event, self.elapsed)
-        painter.end()
-
-
-class GLWidget(QGLWidget):
-    def __init__(self, helper, parent = None):
-        QGLWidget.__init__(self, QGLFormat(QGL.SampleBuffers), parent)
-
-        self.helper = helper
-        self.elapsed = 0
-        self.setFixedSize(200, 200)
-
-    def animate(self):
-        self.elapsed = (self.elapsed + self.sender().interval()) % 1000
-        self.repaint()
-
-    def paintEvent(self, event):
-        painter = QPainter()
-        painter.begin(self)
-        self.helper.paint(painter, event, self.elapsed)
-        painter.end()
-
-
-class Window(QWidget):
-    def __init__(self, parent = None):
-        QWidget.__init__(self, parent)
-
-        helper = Helper()
-        native = Widget(helper, self)
-        openGL = GLWidget(helper, self)
-        nativeLabel = QLabel(self.tr("Native"))
-        nativeLabel.setAlignment(Qt.AlignHCenter)
-        openGLLabel = QLabel(self.tr("OpenGL"))
-        openGLLabel.setAlignment(Qt.AlignHCenter)
-
-        layout = QGridLayout()
-        layout.addWidget(native, 0, 0)
-        layout.addWidget(openGL, 0, 1)
-        layout.addWidget(nativeLabel, 1, 0)
-        layout.addWidget(openGLLabel, 1, 1)
-        self.setLayout(layout)
-
-        timer = QTimer(self)
-        self.connect(timer, SIGNAL("timeout()"), native.animate)
-        self.connect(timer, SIGNAL("timeout()"), openGL.animate)
-        timer.start(50)
-
-        self.setWindowTitle(self.tr("2D Painting on Native and OpenGL Widgets"))
-
-
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    window = Window()
-    window.show()
-    sys.exit(app.exec_())
+    def init_gl(self):
+        if self.is_initialized:
+            return
+        self.texture_id = glGenTextures(1)
+        glEnable(GL_TEXTURE_CUBE_MAP)
+        glBindTexture(GL_TEXTURE_CUBE_MAP, self.texture_id)
+        # Define all 6 faces
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE)
+        if True:
+            img = QImage()
+            img.load("skybox/miramar_lf.tif")
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, GL_RGBA8, img.width(), img.height(), 
+                         0, GL_RGBA, GL_UNSIGNED_BYTE, fname_to_tex("skybox/miramar_ft.tif"))
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, GL_RGBA8, img.width(), img.height(), 
+                         0, GL_RGBA, GL_UNSIGNED_BYTE, fname_to_tex("skybox/miramar_bk.tif"))
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, GL_RGBA8, img.width(), img.height(), 
+                         0, GL_RGBA, GL_UNSIGNED_BYTE, fname_to_tex("skybox/miramar_dn.tif"))
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, GL_RGBA8, img.width(), img.height(), 
+                         0, GL_RGBA, GL_UNSIGNED_BYTE, fname_to_tex("skybox/miramar_up.tif"))
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 0, GL_RGBA8, img.width(), img.height(), 
+                         0, GL_RGBA, GL_UNSIGNED_BYTE, fname_to_tex("skybox/miramar_rt.tif"))
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, GL_RGBA8, img.width(), img.height(), 
+                         0, GL_RGBA, GL_UNSIGNED_BYTE, fname_to_tex("skybox/miramar_lf.tif"))
+        else:
+            test_img = numpy.array(256 * [50,50,128,255], 'uint8')
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, GL_RGBA8, 8, 8, 0, GL_RGBA, GL_UNSIGNED_BYTE, test_img)
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, GL_RGBA8, 8, 8, 0, GL_RGBA, GL_UNSIGNED_BYTE, test_img)
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, GL_RGBA8, 8, 8, 0, GL_RGBA, GL_UNSIGNED_BYTE, test_img)
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, GL_RGBA8, 8, 8, 0, GL_RGBA, GL_UNSIGNED_BYTE, test_img)
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 0, GL_RGBA8, 8, 8, 0, GL_RGBA, GL_UNSIGNED_BYTE, test_img)
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, GL_RGBA8, 8, 8, 0, GL_RGBA, GL_UNSIGNED_BYTE, test_img)
+        glDisable(GL_TEXTURE_CUBE_MAP)
+        self.shader.init_gl()
+        self.is_initialized = True
+        
+    def paint_gl(self, camera):
+        if not self.is_initialized:
+            self.init_gl()
+        # print "painting skybox"
+        glPushAttrib(GL_TEXTURE_BIT | GL_ENABLE_BIT | GL_TRANSFORM_BIT | GL_DEPTH_BUFFER_BIT)
+        glDisable(GL_DEPTH_TEST)
+        glDepthMask(False)
+        glEnable(GL_TEXTURE_CUBE_MAP)
+        glBindTexture(GL_TEXTURE_CUBE_MAP, self.texture_id)       
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_REPEAT)
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_REPEAT)
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_REPEAT)
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR) 
+        # remove camera rotation
+        old_rotation = camera.rotation
+        camera.rotation = Rotation()
+        with camera:
+            z = 0.5 * (camera.zNear - camera.zFar)
+            w = 10*camera.zFar;
+            with self.shader:
+                glUniform1i(self.shader.skybox, 0)
+                glUniform1f(self.shader.eye_shift, camera.eye_shift_in_ground)
+                glBegin(GL_QUADS)
+                glVertex3d( w,  w, z)
+                glVertex3d(-w,  w, z)
+                glVertex3d(-w, -w, z)
+                glVertex3d( w, -w, z)
+                glEnd()
+        camera.rotation = old_rotation
+        glPopAttrib()

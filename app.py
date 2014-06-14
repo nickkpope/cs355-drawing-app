@@ -12,6 +12,50 @@ class AppMainWindow(QMainWindow):
         self.cwidg = AppCentralWidget()
         self.setCentralWidget(self.cwidg)
 
+        self.file_menu = QMenu('File')
+        self.file_menu.addAction('Load', self.load_image)
+        self.file_menu.addAction('Save', self.do_nothing)
+
+        self.edit_menu = QMenu('Edit')
+        self.edit_menu.addAction('Brightness', self.get_brightness)
+        self.edit_menu.addAction('Contrast', self.get_contrast)
+        self.edit_menu.addAction('Blur (Uniform)', self.cwidg.controller.do_uniform_blur)
+        self.edit_menu.addAction('Blur (Median)', self.cwidg.controller.do_median_blur)
+        self.edit_menu.addAction('Sharpen', self.cwidg.controller.do_sharpen)
+        self.edit_menu.addAction('Edge Detection', self.cwidg.controller.do_edge_detection)
+
+        self.menu_bar = QMenuBar()
+        self.menu_bar.addMenu(self.file_menu)
+        self.menu_bar.addMenu(self.edit_menu)
+        self.setMenuBar(self.menu_bar)
+
+    def load_image(self):
+        self.cwidg.controller.do_load_image(QImage("/Users/nick.pope/Downloads/Hue_Manatee_by_Bobert_Rob.jpg"))
+        return
+
+        fileName = QFileDialog.getOpenFileName(self,
+                                               "Open Image",
+                                               "",
+                                               "Image Files (*.png *.jpg *.bmp)")[0]
+        if (fileName):
+            self.cwidg.controller.do_load_image(QImage(fileName))
+
+    def get_brightness(self):
+        amount, success = QInputDialog.getInt(self, "Adjust Brightness", "Please input the desired brightness amount.")
+        if success:
+            self.cwidg.controller.do_change_brightness(amount)
+
+    def get_contrast(self):
+        amount, success = QInputDialog.getInt(self, "Adjust Contrast", "Please input the desired contrast amount.")
+        if success:
+            self.cwidg.controller.do_change_contrast(amount)
+
+    def do_nothing(self):
+        pass
+
+    def keyPressEvent(self, event):
+        self.cwidg.keyPressEvent(event)
+
 
 class AppCentralWidget(QWidget):
     def __init__(self, parent=None):
