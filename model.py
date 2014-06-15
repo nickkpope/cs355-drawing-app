@@ -1,5 +1,6 @@
 import numpy as np
 from math import *
+from PySide.QtGui import QColor
 
 
 class Shape():
@@ -27,6 +28,46 @@ class Shape():
         if trans:
             t.translate(-self.center)
         return t.transform(q)
+
+
+class Image(Shape):
+    def __init__(self, color, qimage, center, w, h):
+        Shape.__init__(self, color)
+        self.type = 'image'
+        self.qimage = qimage
+        self.center = center
+        self.w = w/2
+        self.h = h/2
+        self.fullw = w
+        self.fullh = h
+
+    def handle_positions(self):
+        return self.bounding_box().corners()
+
+    def bounding_box(self):
+        return BoundingBox(self.center, self.w, self.h)
+
+    def is_inside(self, q):
+        return self.bounding_box().is_inside(self.to_object(q))
+
+    def __repr__(self):
+        return 'img(center=%s, w=%s, h=%s)' % (self.center, self.w, self.h)
+
+
+class Pixel():
+    def __init__(self, r, g, b):
+        self.r = r
+        self.g = g
+        self.b = b
+
+    def red(self):
+        return self.r
+
+    def green(self):
+        return self.g
+
+    def blue(self):
+        return self.b
 
 
 class Line(Shape):

@@ -3,7 +3,7 @@ from PySide.QtGui import *
 from PySide.QtOpenGL import *
 from OpenGL.GLU import *
 from OpenGL.GL import *
-from model import Transform2d, Color, Point, Shape, Line, Rectangle, Square, Ellipse, Circle, Triangle
+from model import Transform2d, Color, Point, Shape, Line, Rectangle, Square, Ellipse, Circle, Triangle, Image
 import numpy as np
 import copy
 
@@ -57,72 +57,7 @@ class GLWidget(QGLWidget):
         glClearColor(*self.clear_color)
         glClear(GL_COLOR_BUFFER_BIT)
         self.parent.draw()
-
-        if not self.texture_id is None:
-            self.draw_image()
         glFlush()
-
-    def set_image(self, image):
-        print 'setting image'
-        image.convertToFormat(QImage.Format_ARGB32)
-        data = QGLWidget.convertToGLFormat(image)
-        data.convertToFormat(QImage.Format_ARGB32)
-        self.iwidth = image.width()
-        self.iheight = image.height()
-
-        # generate a texture id, make it current
-        self.texture_id = glGenTextures(1)
-        glBindTexture(GL_TEXTURE_2D, self.texture_id)
-
-        # texture mode and parameters controlling wrapping and scaling
-        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE)
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-
-        # glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE)
-
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, self.iwidth, self.iheight, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, str(data.bits()))
-
-        glDisable(GL_TEXTURE_2D)
-
-    def draw_image(self):
-        glPushAttrib(GL_TEXTURE_BIT | GL_ENABLE_BIT | GL_TRANSFORM_BIT | GL_DEPTH_BUFFER_BIT)
-        glDisable(GL_DEPTH_TEST)
-
-        # map the image data to the texture. note that if the input
-        # type is GL_FLOAT, the values must be in the range [0..1]
-        # glDepthMask(False)
-        glEnable(GL_TEXTURE_2D)
-        glBindTexture(GL_TEXTURE_2D, self.texture_id)
-
-        glColor3f(1, 1, 1)
-
-        glBegin(GL_QUADS)
-        # glVertex2f(-self.iwidth, self.iheight)
-        # glTexCoord2f(-self.iwidth, self.iheight)
-        # glVertex2f(self.iwidth, self.iheight)
-        # glTexCoord2f(self.iwidth, self.iheight)
-        # glVertex2f(self.iwidth, -self.iheight)
-        # glTexCoord2f(self.iwidth, -self.iheight)
-        # glVertex2f(-self.iwidth, -self.iheight)
-        # glTexCoord2f(-self.iwidth, -self.iheight)
-
-        glVertex2f(0, 0)
-        glTexCoord2f(0, 0)
-        glVertex2f(0, self.iheight)
-        glTexCoord2f(0, self.iheight)
-        glVertex2f(self.iwidth, self.iheight)
-        glTexCoord2f(self.iwidth, self.iheight)
-        glVertex2f(self.iwidth, 0)
-        glTexCoord2f(self.iwidth, 0)
-
-        glEnd()
-        glDisable(GL_TEXTURE_2D)
-
-        glPopAttrib()
 
 
 class DrawWidget(QWidget):
@@ -155,6 +90,19 @@ class DrawWidget(QWidget):
             self.reshape_map[tn] = u
             self.shape_types_map[tn] = t
 
+        self.image = QImage()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        tl = self.viewport.to_view(self.image.to_world(Point(-self.image.w, +self.image.h)))
+        tr = self.viewport.to_view(self.image.to_world(Point(+self.image.w, +self.image.h)))
+        br = self.viewport.to_view(self.image.to_world(Point(+self.image.w, -self.image.h)))
+        bl = self.viewport.to_view(self.image.to_world(Point(-self.image.w, -self.image.h)))
+        
+        # scale image to viewport transformation
+        draw_image = self.image.qimage.scaled(tr.x - tl.x, tr.y - br.y)
+        painter.drawImage(QPoint(*bl.xy()), draw_image)
+
     def update_color_indicator(self, r, g, b, a):
         self.parent().ui.w_color_indicator.update_color(r, g, b, a)
 
@@ -178,7 +126,7 @@ class DrawWidget(QWidget):
         # glEnable(GL_POINT_SMOOTH)
 
     def to_screen(self, x, y):
-        return Point(x, self.size().height()-y)  # not sure why widgets are missaligned like this but whatever.
+        return Point(x, self.size().height()-y)
 
     def set_controller(self, controller):
         self.controller = controller
@@ -269,6 +217,9 @@ class DrawWidget(QWidget):
 
         if self.controller.threeD_mode:
             self.draw_house(self.controller.house_lines())
+
+        if self.controller.img_mode:
+            self.draw_image()
 
         if self.controller.selected_shape:
 
@@ -546,9 +497,15 @@ class DrawWidget(QWidget):
                 vl = Line(Color(0, 1, 1), Point(*p1), Point(*p2))
                 self.draw_line(vl)  # applies viewing transformation
 
-    def draw_image(self, image):
-        self.canvas.set_image(image)
-        self.canvas.updateGL()
+    def set_image(self, image):
+        self.image.qimage = image
+
+    def draw_image(self, image=None):
+        # self.canvas.set_image(image)
+        # self.canvas.updateGL()
+        if image:
+            self.set_image(image)
+        self.update()
 
     def square_bbox_reshape(self, shape):
             # determine which corner was picked

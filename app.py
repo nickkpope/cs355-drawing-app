@@ -7,6 +7,11 @@ from model import Model
 
 
 class AppMainWindow(QMainWindow):
+    update_progress = Signal(int)
+    process_finished = Signal(bool)
+    update_track_progress = Signal(str, int)
+    mw_exiting = Signal()
+
     def __init__(self, parent=None):
         super(AppMainWindow, self).__init__(parent=parent)
         self.cwidg = AppCentralWidget()
@@ -28,11 +33,44 @@ class AppMainWindow(QMainWindow):
         self.menu_bar.addMenu(self.file_menu)
         self.menu_bar.addMenu(self.edit_menu)
         self.setMenuBar(self.menu_bar)
+        self.cwidg.controller.do_load_image(QImage("/Users/nick.pope/Downloads/Hue_Manatee_by_Bobert_Rob_face.jpg"))
+
+        self.progress = QWidget()
+        playout = QHBoxLayout()
+        self.progressLabel = QLabel()
+        self.progressBar = QProgressBar()
+        playout.addWidget(self.progressLabel)
+        playout.addWidget(self.progressBar)
+        self.progress.setLayout(playout)
+
+        self.update_progress.connect(self.progressBar.setValue)
+        self.process_finished.connect(self.finish_track_progress)
+        self.update_track_progress.connect(self.do_track_progress_update)
+
+        self.statusBar = QStatusBar()
+        self.statusBar.addWidget(self.progress)
+        self.setStatusBar(self.statusBar)
+        self.statusBar.hide()
+
+    def closeEvent(self, e):
+        self.cwidg.controller.close_down()
+        e.accept()
+
+    def track_progress(self, name, length):
+        self.update_track_progress.emit(name, length)
+
+    def do_track_progress_update(self, name, length):
+        self.statusBar.show()
+        self.progressLabel.setText(name)
+        self.progressBar.setRange(0, length)
+
+    def finish_track_progress(self, success):
+        if success:
+            self.statusBar.hide()
+        else:
+            self.progressLabel.setText('Process Failed')
 
     def load_image(self):
-        self.cwidg.controller.do_load_image(QImage("/Users/nick.pope/Downloads/Hue_Manatee_by_Bobert_Rob.jpg"))
-        return
-
         fileName = QFileDialog.getOpenFileName(self,
                                                "Open Image",
                                                "",
@@ -83,7 +121,7 @@ class AppCentralWidget(QWidget):
         self.ui.sl_alpha.valueChanged.connect(self.change_alpha)
         self.change_alpha(1000)
         self.ui.pb_home.clicked.connect(self.controller.toggle_3D_model_display)
-        self.ui.pb_camera.clicked.connect(self.controller.do_load_image)
+        self.ui.pb_camera.clicked.connect(self.controller.toggle_background_display)
         self.ui.verticalScrollBar.sliderMoved.connect(self.controller.v_scrollbar_changed)
         self.ui.verticalScrollBar.setInvertedAppearance(True)
         self.ui.horizontalScrollBar.sliderMoved.connect(self.controller.h_scrollbar_changed)
